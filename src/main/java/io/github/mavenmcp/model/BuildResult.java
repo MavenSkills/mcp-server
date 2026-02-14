@@ -23,8 +23,8 @@ public record BuildResult(
         long duration,
         List<CompilationError> errors,
         List<CompilationError> warnings,
-        Object summary,
-        List<?> failures,
+        TestSummary summary,
+        List<TestFailure> failures,
         Object artifact,
         String output
 ) {

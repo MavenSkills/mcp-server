@@ -12,6 +12,7 @@ import io.github.mavenmcp.maven.MavenNotFoundException;
 import io.github.mavenmcp.maven.MavenRunner;
 import io.github.mavenmcp.tool.CleanTool;
 import io.github.mavenmcp.tool.CompileTool;
+import io.github.mavenmcp.tool.TestTool;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
@@ -78,11 +79,12 @@ public class MavenMcpServer implements Callable<Integer> {
                         .build())
                 .tools(
                         CompileTool.create(config, mavenRunner, objectMapper),
-                        CleanTool.create(config, mavenRunner, objectMapper)
+                        CleanTool.create(config, mavenRunner, objectMapper),
+                        TestTool.create(config, mavenRunner, objectMapper)
                 )
                 .build();
 
-        log.info("MCP server started with 2 tools, listening on stdio");
+        log.info("MCP server started with 3 tools, listening on stdio");
 
         // Server blocks on stdio until client disconnects.
         // StdioServerTransportProvider handles the lifecycle.
