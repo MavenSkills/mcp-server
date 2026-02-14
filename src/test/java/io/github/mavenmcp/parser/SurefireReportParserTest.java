@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import io.github.mavenmcp.model.TestFailure;
+import io.github.mavenmcp.parser.SurefireReportParser.SurefireResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -30,12 +31,13 @@ class SurefireReportParserTest {
 
         var result = SurefireReportParser.parse(tempDir, 50);
 
-        assertThat(result).isNotNull();
-        assertThat(result.summary().testsRun()).isEqualTo(3);
-        assertThat(result.summary().testsFailed()).isEqualTo(0);
-        assertThat(result.summary().testsErrored()).isEqualTo(0);
-        assertThat(result.summary().testsSkipped()).isEqualTo(0);
-        assertThat(result.failures()).isEmpty();
+        assertThat(result).isPresent();
+        SurefireResult sr = result.get();
+        assertThat(sr.summary().testsRun()).isEqualTo(3);
+        assertThat(sr.summary().testsFailed()).isEqualTo(0);
+        assertThat(sr.summary().testsErrored()).isEqualTo(0);
+        assertThat(sr.summary().testsSkipped()).isEqualTo(0);
+        assertThat(sr.failures()).isEmpty();
     }
 
     @Test
@@ -44,12 +46,13 @@ class SurefireReportParserTest {
 
         var result = SurefireReportParser.parse(tempDir, 50);
 
-        assertThat(result).isNotNull();
-        assertThat(result.summary().testsRun()).isEqualTo(4);
-        assertThat(result.summary().testsFailed()).isEqualTo(2);
-        assertThat(result.failures()).hasSize(2);
+        assertThat(result).isPresent();
+        SurefireResult sr = result.get();
+        assertThat(sr.summary().testsRun()).isEqualTo(4);
+        assertThat(sr.summary().testsFailed()).isEqualTo(2);
+        assertThat(sr.failures()).hasSize(2);
 
-        TestFailure first = result.failures().getFirst();
+        TestFailure first = sr.failures().getFirst();
         assertThat(first.testClass()).isEqualTo("com.example.FailingTest");
         assertThat(first.testMethod()).isEqualTo("shouldReturnUser");
         assertThat(first.message()).contains("expected");
@@ -62,12 +65,13 @@ class SurefireReportParserTest {
 
         var result = SurefireReportParser.parse(tempDir, 50);
 
-        assertThat(result).isNotNull();
-        assertThat(result.summary().testsRun()).isEqualTo(2);
-        assertThat(result.summary().testsErrored()).isEqualTo(1);
-        assertThat(result.failures()).hasSize(1);
+        assertThat(result).isPresent();
+        SurefireResult sr = result.get();
+        assertThat(sr.summary().testsRun()).isEqualTo(2);
+        assertThat(sr.summary().testsErrored()).isEqualTo(1);
+        assertThat(sr.failures()).hasSize(1);
 
-        TestFailure error = result.failures().getFirst();
+        TestFailure error = sr.failures().getFirst();
         assertThat(error.testClass()).isEqualTo("com.example.ErrorTest");
         assertThat(error.testMethod()).isEqualTo("shouldNotThrow");
         assertThat(error.message()).contains("Connection refused");
@@ -79,10 +83,11 @@ class SurefireReportParserTest {
 
         var result = SurefireReportParser.parse(tempDir, 50);
 
-        assertThat(result).isNotNull();
-        assertThat(result.summary().testsRun()).isEqualTo(2);
-        assertThat(result.summary().testsSkipped()).isEqualTo(1);
-        assertThat(result.failures()).isEmpty();
+        assertThat(result).isPresent();
+        SurefireResult sr = result.get();
+        assertThat(sr.summary().testsRun()).isEqualTo(2);
+        assertThat(sr.summary().testsSkipped()).isEqualTo(1);
+        assertThat(sr.failures()).isEmpty();
     }
 
     @Test
@@ -93,28 +98,29 @@ class SurefireReportParserTest {
 
         var result = SurefireReportParser.parse(tempDir, 50);
 
-        assertThat(result).isNotNull();
+        assertThat(result).isPresent();
+        SurefireResult sr = result.get();
         // 3 (passing) + 4 (failing) + 2 (error) = 9
-        assertThat(result.summary().testsRun()).isEqualTo(9);
+        assertThat(sr.summary().testsRun()).isEqualTo(9);
         // 2 failures + 1 error in test failure records
-        assertThat(result.failures()).hasSize(3);
+        assertThat(sr.failures()).hasSize(3);
     }
 
     @Test
-    void shouldReturnNullWhenNoReportsDirectory() {
+    void shouldReturnEmptyWhenNoReportsDirectory() {
         Path noReportsDir = tempDir.resolve("nonexistent");
 
         var result = SurefireReportParser.parse(noReportsDir, 50);
 
-        assertThat(result).isNull();
+        assertThat(result).isEmpty();
     }
 
     @Test
-    void shouldReturnNullWhenEmptyReportsDirectory() {
+    void shouldReturnEmptyWhenEmptyReportsDirectory() {
         // reportsDir exists but has no XML files
         var result = SurefireReportParser.parse(tempDir, 50);
 
-        assertThat(result).isNull();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -124,8 +130,9 @@ class SurefireReportParserTest {
         // Truncate to 2 lines
         var result = SurefireReportParser.parse(tempDir, 2);
 
-        assertThat(result.failures()).isNotEmpty();
-        for (TestFailure failure : result.failures()) {
+        assertThat(result).isPresent();
+        assertThat(result.get().failures()).isNotEmpty();
+        for (TestFailure failure : result.get().failures()) {
             if (failure.stackTrace() != null) {
                 long lineCount = failure.stackTrace().lines().count();
                 assertThat(lineCount).isLessThanOrEqualTo(2);

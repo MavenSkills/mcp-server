@@ -11,7 +11,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.mavenmcp.config.ServerConfig;
 import io.github.mavenmcp.maven.MavenExecutionResult;
-import io.github.mavenmcp.maven.MavenRunner;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,8 +31,6 @@ class TestToolTest {
     @BeforeEach
     void setUp() throws IOException {
         objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        // Create a temp project dir with pom.xml for config validation
-        Files.writeString(tempDir.resolve("pom.xml"), "<project/>");
         config = new ServerConfig(tempDir, Path.of("/usr/bin/mvn"));
         reportsDir = tempDir.resolve("target/surefire-reports");
     }
@@ -43,7 +40,7 @@ class TestToolTest {
         Files.createDirectories(reportsDir);
         copyFixture("TEST-com.example.PassingTest.xml");
 
-        var runner = new StubRunner(new MavenExecutionResult(0, "[INFO] BUILD SUCCESS", "", 5000));
+        var runner = new TestRunners.StubRunner(new MavenExecutionResult(0, "[INFO] BUILD SUCCESS", "", 5000));
         SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
         CallToolResult result = spec.call().apply(null, Map.of());
@@ -60,7 +57,7 @@ class TestToolTest {
         Files.createDirectories(reportsDir);
         copyFixture("TEST-com.example.FailingTest.xml");
 
-        var runner = new StubRunner(new MavenExecutionResult(1, "[ERROR] Tests failed", "", 8000));
+        var runner = new TestRunners.StubRunner(new MavenExecutionResult(1, "[ERROR] Tests failed", "", 8000));
         SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
         CallToolResult result = spec.call().apply(null, Map.of());
@@ -76,7 +73,7 @@ class TestToolTest {
     void shouldFallbackToCompilationErrorsWhenNoXml() {
         // No surefire-reports directory → compilation failure fallback
         String stdout = "[ERROR] /tmp/src/main/java/Foo.java:[10,5] cannot find symbol\n[ERROR] BUILD FAILURE";
-        var runner = new StubRunner(new MavenExecutionResult(1, stdout, "", 3000));
+        var runner = new TestRunners.StubRunner(new MavenExecutionResult(1, stdout, "", 3000));
         SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
         CallToolResult result = spec.call().apply(null, Map.of());
@@ -89,7 +86,7 @@ class TestToolTest {
 
     @Test
     void shouldPassTestFilterAsArg() {
-        var runner = new CapturingRunner();
+        var runner = new TestRunners.CapturingRunner();
         SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
         spec.call().apply(null, Map.of("testFilter", "MyTest#shouldWork"));
@@ -100,7 +97,7 @@ class TestToolTest {
 
     @Test
     void shouldPassExtraArgs() {
-        var runner = new CapturingRunner();
+        var runner = new TestRunners.CapturingRunner();
         SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
         spec.call().apply(null, Map.of("args", List.of("-X")));
@@ -115,23 +112,4 @@ class TestToolTest {
         }
     }
 
-    // --- Test helpers ---
-
-    static class StubRunner extends MavenRunner {
-        private final MavenExecutionResult result;
-        StubRunner(MavenExecutionResult result) { this.result = result; }
-        @Override
-        public MavenExecutionResult execute(String goal, List<String> extraArgs, Path exe, Path dir) {
-            return result;
-        }
-    }
-
-    static class CapturingRunner extends MavenRunner {
-        List<String> capturedArgs;
-        @Override
-        public MavenExecutionResult execute(String goal, List<String> extraArgs, Path exe, Path dir) {
-            capturedArgs = extraArgs;
-            return new MavenExecutionResult(0, "", "", 100);
-        }
-    }
 }

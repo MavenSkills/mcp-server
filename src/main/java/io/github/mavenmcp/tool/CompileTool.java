@@ -45,7 +45,7 @@ public final class CompileTool {
 
     public static SyncToolSpecification create(ServerConfig config, MavenRunner runner,
                                                ObjectMapper objectMapper) {
-        var jsonMapper = new JacksonMcpJsonMapper(new ObjectMapper());
+        var jsonMapper = new JacksonMcpJsonMapper(objectMapper);
         Tool tool = Tool.builder()
                 .name(TOOL_NAME)
                 .description(DESCRIPTION)
@@ -72,8 +72,7 @@ public final class CompileTool {
 
                         var buildResult = new BuildResult(
                                 status, execResult.duration(),
-                                parseResult.errors().isEmpty() ? List.of() : parseResult.errors(),
-                                parseResult.warnings().isEmpty() ? List.of() : parseResult.warnings(),
+                                parseResult.errors(), parseResult.warnings(),
                                 null, null, null, output);
 
                         String json = objectMapper.writeValueAsString(buildResult);

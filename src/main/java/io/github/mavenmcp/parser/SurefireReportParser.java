@@ -6,7 +6,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Optional;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -37,14 +37,14 @@ public final class SurefireReportParser {
      *
      * @param projectDir      project root directory
      * @param stackTraceLines max lines per stack trace (default 50)
-     * @return parsed test results, or null if no reports found
+     * @return parsed test results, or empty if no reports found
      */
-    public static SurefireResult parse(Path projectDir, int stackTraceLines) {
+    public static Optional<SurefireResult> parse(Path projectDir, int stackTraceLines) {
         Path reportsDir = projectDir.resolve(REPORTS_DIR);
 
         if (!Files.isDirectory(reportsDir)) {
             log.debug("Surefire reports directory not found: {}", reportsDir);
-            return null;
+            return Optional.empty();
         }
 
         File[] xmlFiles = reportsDir.toFile().listFiles(
@@ -52,7 +52,7 @@ public final class SurefireReportParser {
 
         if (xmlFiles == null || xmlFiles.length == 0) {
             log.debug("No TEST-*.xml files found in {}", reportsDir);
-            return null;
+            return Optional.empty();
         }
 
         int totalTests = 0, totalFailures = 0, totalErrors = 0, totalSkipped = 0;
@@ -85,11 +85,11 @@ public final class SurefireReportParser {
             }
         } catch (Exception e) {
             log.error("Failed to initialize XML parser", e);
-            return null;
+            return Optional.empty();
         }
 
         var summary = new TestSummary(totalTests, totalFailures, totalSkipped, totalErrors);
-        return new SurefireResult(summary, failures);
+        return Optional.of(new SurefireResult(summary, failures));
     }
 
     private static void extractFailures(Element testsuite, String failureElementName,

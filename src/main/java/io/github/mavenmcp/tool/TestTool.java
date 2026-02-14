@@ -57,7 +57,7 @@ public final class TestTool {
 
     public static SyncToolSpecification create(ServerConfig config, MavenRunner runner,
                                                ObjectMapper objectMapper) {
-        var jsonMapper = new JacksonMcpJsonMapper(new ObjectMapper());
+        var jsonMapper = new JacksonMcpJsonMapper(objectMapper);
         Tool tool = Tool.builder()
                 .name(TOOL_NAME)
                 .description(DESCRIPTION)
@@ -83,13 +83,13 @@ public final class TestTool {
                                 config.projectDir(), stackTraceLines);
 
                         BuildResult buildResult;
-                        if (surefireResult != null) {
+                        if (surefireResult.isPresent()) {
                             // Test results available from XML
+                            var sr = surefireResult.get();
                             buildResult = new BuildResult(
                                     status, execResult.duration(),
                                     null, null,
-                                    surefireResult.summary(),
-                                    surefireResult.failures().isEmpty() ? List.of() : surefireResult.failures(),
+                                    sr.summary(), sr.failures(),
                                     null, output);
                         } else if (!execResult.isSuccess()) {
                             // No XML reports + failure = likely compilation error
@@ -97,8 +97,7 @@ public final class TestTool {
                                     execResult.stdout(), config.projectDir());
                             buildResult = new BuildResult(
                                     status, execResult.duration(),
-                                    parseResult.errors().isEmpty() ? List.of() : parseResult.errors(),
-                                    parseResult.warnings().isEmpty() ? List.of() : parseResult.warnings(),
+                                    parseResult.errors(), parseResult.warnings(),
                                     null, null, null, output);
                         } else {
                             // Success but no XML (shouldn't happen normally)

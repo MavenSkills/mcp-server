@@ -8,7 +8,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.mavenmcp.config.ServerConfig;
 import io.github.mavenmcp.maven.MavenExecutionResult;
-import io.github.mavenmcp.maven.MavenRunner;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import org.junit.jupiter.api.Test;
@@ -25,7 +24,7 @@ class CompileToolTest {
     @Test
     void shouldReturnSuccessWithNoWarnings() {
         String stdout = "[INFO] Compiling 5 source files\n[INFO] BUILD SUCCESS";
-        var runner = new StubRunner(new MavenExecutionResult(0, stdout, "", 3000));
+        var runner = new TestRunners.StubRunner(new MavenExecutionResult(0, stdout, "", 3000));
         SyncToolSpecification spec = CompileTool.create(config, runner, objectMapper);
 
         CallToolResult result = spec.call().apply(null, Map.of());
@@ -39,7 +38,7 @@ class CompileToolTest {
     @Test
     void shouldReturnFailureWithParsedErrors() {
         String stdout = "[ERROR] /home/user/my-project/src/main/java/Foo.java:[42,15] cannot find symbol\n[ERROR] BUILD FAILURE";
-        var runner = new StubRunner(new MavenExecutionResult(1, stdout, "", 4000));
+        var runner = new TestRunners.StubRunner(new MavenExecutionResult(1, stdout, "", 4000));
         SyncToolSpecification spec = CompileTool.create(config, runner, objectMapper);
 
         CallToolResult result = spec.call().apply(null, Map.of());
@@ -54,7 +53,7 @@ class CompileToolTest {
     @Test
     void shouldReturnSuccessWithWarnings() {
         String stdout = "[WARNING] /home/user/my-project/src/main/java/Old.java:[10,5] [deprecation] deprecated method\n[INFO] BUILD SUCCESS";
-        var runner = new StubRunner(new MavenExecutionResult(0, stdout, "", 2000));
+        var runner = new TestRunners.StubRunner(new MavenExecutionResult(0, stdout, "", 2000));
         SyncToolSpecification spec = CompileTool.create(config, runner, objectMapper);
 
         CallToolResult result = spec.call().apply(null, Map.of());
@@ -68,7 +67,7 @@ class CompileToolTest {
 
     @Test
     void shouldPassArgsToRunner() {
-        var runner = new CapturingRunner();
+        var runner = new TestRunners.CapturingRunner();
         SyncToolSpecification spec = CompileTool.create(config, runner, objectMapper);
 
         spec.call().apply(null, Map.of("args", List.of("-DskipFrontend")));
@@ -76,23 +75,4 @@ class CompileToolTest {
         assertThat(runner.capturedArgs).containsExactly("-DskipFrontend");
     }
 
-    // --- Test helpers ---
-
-    static class StubRunner extends MavenRunner {
-        private final MavenExecutionResult result;
-        StubRunner(MavenExecutionResult result) { this.result = result; }
-        @Override
-        public MavenExecutionResult execute(String goal, List<String> extraArgs, Path exe, Path dir) {
-            return result;
-        }
-    }
-
-    static class CapturingRunner extends MavenRunner {
-        List<String> capturedArgs;
-        @Override
-        public MavenExecutionResult execute(String goal, List<String> extraArgs, Path exe, Path dir) {
-            capturedArgs = extraArgs;
-            return new MavenExecutionResult(0, "", "", 100);
-        }
-    }
 }

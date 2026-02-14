@@ -43,7 +43,7 @@ public final class CleanTool {
 
     public static SyncToolSpecification create(ServerConfig config, MavenRunner runner,
                                                ObjectMapper objectMapper) {
-        var jsonMapper = new JacksonMcpJsonMapper(new ObjectMapper());
+        var jsonMapper = new JacksonMcpJsonMapper(objectMapper);
         Tool tool = Tool.builder()
                 .name(TOOL_NAME)
                 .description(DESCRIPTION)

@@ -84,7 +84,7 @@ public class MavenMcpServer implements Callable<Integer> {
                 )
                 .build();
 
-        log.info("MCP server started with 3 tools, listening on stdio");
+        log.info("MCP server started, listening on stdio");
 
         // Server blocks on stdio until client disconnects.
         // StdioServerTransportProvider handles the lifecycle.
