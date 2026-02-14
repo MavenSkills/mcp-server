@@ -4,11 +4,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.mavenmcp.config.ServerConfig;
 import io.github.mavenmcp.maven.MavenDetector;
 import io.github.mavenmcp.maven.MavenNotFoundException;
 import io.github.mavenmcp.maven.MavenRunner;
+import io.github.mavenmcp.tool.CleanTool;
+import io.github.mavenmcp.tool.CompileTool;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
@@ -61,6 +64,9 @@ public class MavenMcpServer implements Callable<Integer> {
         log.info("Maven executable: {}", config.mavenExecutable());
 
         // --- MCP server bootstrap ---
+        ObjectMapper objectMapper = new ObjectMapper()
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
         StdioServerTransportProvider transport =
                 new StdioServerTransportProvider(new JacksonMcpJsonMapper(new ObjectMapper()));
 
@@ -70,9 +76,13 @@ public class MavenMcpServer implements Callable<Integer> {
                         .tools(Boolean.TRUE)
                         .logging()
                         .build())
+                .tools(
+                        CompileTool.create(config, mavenRunner, objectMapper),
+                        CleanTool.create(config, mavenRunner, objectMapper)
+                )
                 .build();
 
-        log.info("MCP server started, listening on stdio");
+        log.info("MCP server started with 2 tools, listening on stdio");
 
         // Server blocks on stdio until client disconnects.
         // StdioServerTransportProvider handles the lifecycle.

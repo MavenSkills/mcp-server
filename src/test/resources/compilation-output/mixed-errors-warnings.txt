@@ -1,0 +1,8 @@
+[INFO] Scanning for projects...
+[INFO] --- maven-compiler-plugin:3.13.0:compile (default-compile) ---
+[INFO] Compiling 8 source files with javac [debug target 25] to target/classes
+[WARNING] /home/user/my-project/src/main/java/com/example/OldService.java:[10,5] [deprecation] doStuff() in LegacyApi has been deprecated
+[ERROR] /home/user/my-project/src/main/java/com/example/MyService.java:[42,15] cannot find symbol
+[WARNING] /home/user/my-project/src/main/java/com/example/OldService.java:[25,12] [unchecked] unchecked cast
+[ERROR] /home/user/my-project/src/main/java/com/example/MyService.java:[55,10] method not found
+[ERROR] COMPILATION FAILURE

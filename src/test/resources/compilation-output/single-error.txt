@@ -1,0 +1,11 @@
+[INFO] Scanning for projects...
+[INFO]
+[INFO] --- maven-compiler-plugin:3.13.0:compile (default-compile) ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 5 source files with javac [debug target 25] to target/classes
+[ERROR] /home/user/my-project/src/main/java/com/example/MyService.java:[42,15] cannot find symbol
+[INFO]   symbol:   variable foo
+[INFO]   location: class com.example.MyService
+[ERROR] COMPILATION FAILURE
+[ERROR]
+[ERROR] -> [Help 1]

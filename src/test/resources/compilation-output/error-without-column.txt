@@ -1,0 +1,4 @@
+[INFO] Scanning for projects...
+[INFO] --- maven-compiler-plugin:3.13.0:compile (default-compile) ---
+[ERROR] /home/user/my-project/src/main/java/com/example/Broken.java:[42] some error without column info
+[ERROR] COMPILATION FAILURE
