@@ -28,4 +28,36 @@ final class ToolUtils {
         }
         return Collections.emptyList();
     }
+
+    /**
+     * Extract a boolean parameter from tool call arguments.
+     *
+     * @param params       the tool call parameters map
+     * @param key          the parameter key
+     * @param defaultValue value to return if key is absent or not a boolean
+     * @return the boolean value or default
+     */
+    static boolean extractBoolean(Map<String, Object> params, String key, boolean defaultValue) {
+        Object value = params.get(key);
+        if (value instanceof Boolean b) {
+            return b;
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Extract an integer parameter from tool call arguments.
+     *
+     * @param params       the tool call parameters map
+     * @param key          the parameter key
+     * @param defaultValue value to return if key is absent or not a number
+     * @return the integer value or default
+     */
+    static int extractInt(Map<String, Object> params, String key, int defaultValue) {
+        Object value = params.get(key);
+        if (value instanceof Number num) {
+            return num.intValue();
+        }
+        return defaultValue;
+    }
 }

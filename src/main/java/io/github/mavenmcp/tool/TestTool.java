@@ -1,5 +1,7 @@
 package io.github.mavenmcp.tool;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -10,7 +12,11 @@ import io.github.mavenmcp.maven.MavenExecutionException;
 import io.github.mavenmcp.maven.MavenExecutionResult;
 import io.github.mavenmcp.maven.MavenRunner;
 import io.github.mavenmcp.model.BuildResult;
+import io.github.mavenmcp.model.TestFailure;
 import io.github.mavenmcp.parser.CompilationOutputParser;
+import io.github.mavenmcp.parser.MavenOutputFilter;
+import io.github.mavenmcp.parser.XmlUtils;
+import io.github.mavenmcp.parser.StackTraceProcessor;
 import io.github.mavenmcp.parser.SurefireReportParser;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
@@ -19,6 +25,8 @@ import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
 
 /**
  * MCP tool: maven_test — runs Maven tests and returns structured results
@@ -46,7 +54,19 @@ public final class TestTool {
                 },
                 "stackTraceLines": {
                   "type": "integer",
-                  "description": "Max stack trace lines per failure (default: 50)"
+                  "description": "Max stack trace lines per failure (default: 50). 0 disables line cap."
+                },
+                "appPackage": {
+                  "type": "string",
+                  "description": "Application package prefix for smart stack trace filtering (e.g. 'com.example.myapp'). Auto-derived from pom.xml groupId if not provided."
+                },
+                "includeTestLogs": {
+                  "type": "boolean",
+                  "description": "Include stdout/stderr from failing tests (default: true)"
+                },
+                "testOutputLimit": {
+                  "type": "integer",
+                  "description": "Per-test character limit for stdout/stderr output (default: 2000)"
                 }
               }
             }
@@ -69,27 +89,36 @@ public final class TestTool {
                     try {
                         List<String> args = buildArgs(params);
                         int stackTraceLines = extractStackTraceLines(params);
-                        log.info("maven_test called with args: {}, stackTraceLines: {}", args, stackTraceLines);
+                        String appPackage = extractAppPackage(params, config.projectDir());
+                        boolean includeTestLogs = ToolUtils.extractBoolean(params, "includeTestLogs", true);
+                        int testOutputLimit = ToolUtils.extractInt(params, "testOutputLimit",
+                                SurefireReportParser.DEFAULT_PER_TEST_OUTPUT_LIMIT);
+                        log.info("maven_test called with args: {}, stackTraceLines: {}, appPackage: {}",
+                                args, stackTraceLines, appPackage);
 
                         MavenExecutionResult execResult = runner.execute(
                                 "test", args,
                                 config.mavenExecutable(), config.projectDir());
 
                         String status = execResult.isSuccess() ? BuildResult.SUCCESS : BuildResult.FAILURE;
-                        String output = execResult.isSuccess() ? null : execResult.stdout();
+                        String output = execResult.isSuccess() ? null
+                                : MavenOutputFilter.filter(execResult.stdout());
 
                         // Try Surefire XML reports first
                         var surefireResult = SurefireReportParser.parse(
-                                config.projectDir(), stackTraceLines);
+                                config.projectDir(), includeTestLogs, testOutputLimit);
 
                         BuildResult buildResult;
                         if (surefireResult.isPresent()) {
                             // Test results available from XML
                             var sr = surefireResult.get();
+                            // Apply smart stack trace processing
+                            var processedFailures = processStackTraces(
+                                    sr.failures(), appPackage, stackTraceLines);
                             buildResult = new BuildResult(
                                     status, execResult.duration(),
                                     null, null,
-                                    sr.summary(), sr.failures(),
+                                    sr.summary(), processedFailures,
                                     null, output);
                         } else if (!execResult.isSuccess()) {
                             // No XML reports + failure = likely compilation error
@@ -122,6 +151,17 @@ public final class TestTool {
         );
     }
 
+    /**
+     * Apply smart stack trace processing to all failures.
+     */
+    private static List<TestFailure> processStackTraces(List<TestFailure> failures,
+                                                         String appPackage, int stackTraceLines) {
+        return failures.stream()
+                .map(f -> f.withStackTrace(
+                        StackTraceProcessor.process(f.stackTrace(), appPackage, stackTraceLines)))
+                .toList();
+    }
+
     private static List<String> buildArgs(Map<String, Object> params) {
         List<String> args = new ArrayList<>(ToolUtils.extractArgs(params));
 
@@ -135,10 +175,43 @@ public final class TestTool {
     }
 
     private static int extractStackTraceLines(Map<String, Object> params) {
-        Object value = params.get("stackTraceLines");
-        if (value instanceof Number num) {
-            return num.intValue();
+        return ToolUtils.extractInt(params, "stackTraceLines",
+                SurefireReportParser.DEFAULT_STACK_TRACE_LINES);
+    }
+
+    /**
+     * Extract appPackage from params, or derive from pom.xml groupId.
+     */
+    static String extractAppPackage(Map<String, Object> params, Path projectDir) {
+        Object value = params.get("appPackage");
+        if (value instanceof String pkg && !pkg.isBlank()) {
+            return pkg;
         }
-        return SurefireReportParser.DEFAULT_STACK_TRACE_LINES;
+        return deriveGroupId(projectDir);
+    }
+
+    /**
+     * Read groupId from pom.xml for use as application package prefix.
+     */
+    static String deriveGroupId(Path projectDir) {
+        try {
+            File pomFile = projectDir.resolve("pom.xml").toFile();
+            if (!pomFile.exists()) {
+                return null;
+            }
+            Document doc = XmlUtils.newSecureDocumentBuilder().parse(pomFile);
+
+            // Look for direct child <groupId> of <project>
+            NodeList groupIds = doc.getDocumentElement().getElementsByTagName("groupId");
+            if (groupIds.getLength() > 0) {
+                String groupId = groupIds.item(0).getTextContent();
+                if (groupId != null && !groupId.isBlank()) {
+                    return groupId.strip();
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Failed to derive groupId from pom.xml: {}", e.getMessage());
+        }
+        return null;
     }
 }
