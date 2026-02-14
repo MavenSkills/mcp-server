@@ -126,6 +126,10 @@ public class MavenMcpServer implements Callable<Integer> {
 
     public static void main(String[] args) {
         int exitCode = new CommandLine(new MavenMcpServer()).execute(args);
-        System.exit(exitCode);
+        // Only exit on error. On success (exitCode == 0), let the MCP transport's
+        // non-daemon threads keep the JVM alive until the client disconnects (stdin EOF).
+        if (exitCode != 0) {
+            System.exit(exitCode);
+        }
     }
 }
