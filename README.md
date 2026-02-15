@@ -1,33 +1,51 @@
 # Maven MCP Server
 
-MCP server that wraps Maven CLI operations and returns structured, parsed output to AI agents via stdio transport.
+AI coding agents (Claude Code, Cursor, Windsurf) run Maven builds through shell commands and get back **pages of raw logs**. The agent must parse this unstructured text, burning through context window and tokens — you pay for every line of `[INFO] Downloading...` that the model reads.
 
-## Tools
+**Maven MCP** is a [Model Context Protocol](https://modelcontextprotocol.io/) server that sits between the agent and Maven. It runs the build, parses the output, and returns **one structured JSON object** — just the errors, test results, and actionable information the agent needs.
 
-| Tool | Description |
-|------|-------------|
-| `maven_compile` | Compile project. Returns structured errors with file, line, column. |
-| `maven_test` | Run tests. Returns pass/fail summary with parsed Surefire reports. |
-| `maven_clean` | Clean the build directory (`target/`). |
+## The difference
 
-## Build
+Same `maven_test` run (17 tests, all passing):
 
-Requires Java 25+ and Maven.
+|  | Maven MCP | IntelliJ MCP | Bash (`./mvnw`) |
+|---|---|---|---|
+| **Characters** | ~130 | ~8 900 | ~6 200 |
+| **Tokens (est.)** | ~30 | ~2 200 | ~1 600 |
+| **Format** | Structured JSON | Log + TeamCity tags | Raw log |
+| **Machine-parseable?** | Yes | Needs filtering | Needs filtering |
+
+When tests fail (5 failures, Spring Boot project) the gap grows:
+
+|  | Maven MCP | IntelliJ MCP | Bash (`./mvnw`) |
+|---|---|---|---|
+| **Tokens (est.)** | ~900 | ~3 400 | ~2 600 |
+| **Stacktraces** | App frames only | Full | Full (repeated x5) |
+| **Spring Boot logs** | Once, in first test | Full log per test | Full log |
+| **Structure** | JSON `failures[]` | Raw text | Raw text |
+
+**~50-70x fewer tokens** on success. **~3-4x fewer** on failure — with better structure.
+
+## Setup
+
+### Build
+
+Requires Java 21+ and Maven.
 
 ```bash
 mvn package
 ```
 
-Produces `target/maven-mcp.jar` (fat JAR with all dependencies).
+Produces `target/maven-mcp.jar`.
 
-## Configuration
+### Configure your MCP client
 
-### Claude Code (`.mcp.json`)
+Add to `.mcp.json` (Claude Code) or equivalent:
 
 ```json
 {
   "mcpServers": {
-    "maven-mcp": {
+    "maven": {
       "command": "java",
       "args": [
         "-jar",
@@ -40,33 +58,26 @@ Produces `target/maven-mcp.jar` (fat JAR with all dependencies).
 }
 ```
 
-The `--project` argument points to the Maven project directory (must contain `pom.xml`).
+The server auto-detects `./mvnw` in the project, falling back to system `mvn`.
 
-The server auto-detects `./mvnw` wrapper in the project directory, falling back to system `mvn`.
+## Tools
 
-## Why MCP instead of raw Maven?
+| Tool | What the agent gets back |
+|------|--------------------------|
+| `maven_compile` | Structured errors with file, line, column |
+| `maven_test` | Pass/fail summary with parsed Surefire reports, filtered stacktraces |
+| `maven_clean` | Build directory cleaned confirmation |
 
-LLM agents pay for every token of context they consume. Maven MCP returns a single structured JSON line instead of pages of build logs — **~70x fewer tokens** than IntelliJ MCP and **~50x fewer** than raw `./mvnw`.
+### Smart stacktraces
 
-Comparison for the same `maven_test` run (17 tests, all passing):
+Test failures include only application frames. Framework noise is collapsed:
 
-|  | Maven MCP | IntelliJ MCP | Bash (`./mvnw`) |
-|---|---|---|---|
-| **Characters** | ~130 | ~8 900 | ~6 200 |
-| **Tokens (est.)** | ~30 | ~2 200 | ~1 600 |
-| **Lines** | 1 | ~85 | ~75 |
-| **Format** | Structured JSON | Log + TeamCity tags | Log + Surefire summary |
-| **Machine-parseable?** | Immediately | Needs filtering | Needs filtering |
+```
+com.example.MyService.process(MyService.java:42)
+com.example.MyController.handle(MyController.java:18)
+... 6 framework frames omitted
+```
 
-The difference grows when tests fail (5 failing tests, Spring Boot project):
+## How it works
 
-|  | Maven MCP | IntelliJ MCP | Bash (`./mvnw`) |
-|---|---|---|---|
-| **Characters** | ~3 500 | ~13 500 | ~10 500 |
-| **Tokens (est.)** | ~900 | ~3 400 | ~2 600 |
-| **Stacktrace** | Filtered (app frames only) | Full (in TeamCity tags) | Full (repeated x5) |
-| **Spring Boot logs** | Only in 1st test `testOutput` | Full log | Full log |
-| **Structure** | JSON with `failures[]` | Raw text | Raw text |
-| **Stacktrace duplication** | Once in `failures`, once in `output` | Once in `##teamcity` per test | 2x per test (inline + summary) |
-
-Maven MCP intelligently filters stacktraces to application frames (`... 6 framework frames omitted`), structures failures in JSON with `testClass`, `testMethod`, `message`, and avoids duplicating the full build log — **~4x fewer tokens** than IntelliJ and **~3x fewer** than raw Maven on failure scenarios.
+Maven MCP spawns Maven as an external process (`./mvnw` or `mvn`), captures stdout/stderr, parses the output (compilation errors, Surefire XML reports), and returns structured JSON over MCP stdio transport. The agent never sees raw build logs.
