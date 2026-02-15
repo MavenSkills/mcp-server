@@ -1,44 +1,38 @@
 # Maven MCP Server
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.mavenskills/maven-mcp)](https://central.sonatype.com/artifact/io.github.mavenskills/maven-mcp)
+[![CI](https://github.com/MavenSkills/mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/MavenSkills/mcp-server/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 AI coding agents (Claude Code, Cursor, Windsurf) run Maven builds through shell commands and get back **pages of raw logs**. The agent must parse this unstructured text, burning through context window and tokens — you pay for every line of `[INFO] Downloading...` that the model reads.
 
 **Maven MCP** is a [Model Context Protocol](https://modelcontextprotocol.io/) server that sits between the agent and Maven. It runs the build, parses the output, and returns **one structured JSON object** — just the errors, test results, and actionable information the agent needs.
 
-## The difference
+Tested with Claude Code. Compatible with any MCP client.
 
-Same `maven_test` run (17 tests, all passing):
+## Token savings
 
-|  | Maven MCP | IntelliJ MCP | Bash (`./mvnw`) |
-|---|---|---|---|
-| **Characters** | ~130 | ~8 900 | ~6 200 |
-| **Tokens (est.)** | ~30 | ~2 200 | ~1 600 |
-| **Format** | Structured JSON | Log + TeamCity tags | Raw log |
-| **Machine-parseable?** | Yes | Needs filtering | Needs filtering |
-
-When tests fail (5 failures, Spring Boot project) the gap grows:
+Same project, same tests — different token cost for the agent:
 
 |  | Maven MCP | IntelliJ MCP | Bash (`./mvnw`) |
 |---|---|---|---|
-| **Tokens (est.)** | ~900 | ~3 400 | ~2 600 |
-| **Stacktraces** | App frames only | Full | Full (repeated x5) |
-| **Spring Boot logs** | Once, in first test | Full log per test | Full log |
-| **Structure** | JSON `failures[]` | Raw text | Raw text |
+| **17 tests passing** | ~30 tokens | ~2 200 tokens | ~1 600 tokens |
+| **5 failures (Spring Boot)** | ~900 tokens | ~3 400 tokens | ~2 600 tokens |
 
-**~50-70x fewer tokens** on success. **~3-4x fewer** on failure — with better structure.
+**~50x fewer tokens** on success. **~3x fewer** on failure — as structured JSON instead of raw logs.
 
-### At scale: 205 test errors, one root cause
+### At scale: 205 errors, one root cause
 
-Real case from a Spring Boot project: a Redis container port conflict causes 205 tests to error out. The raw Maven output is **5.4 MB** — mostly repeated Spring context dumps (`WebMergedContextConfiguration.toString()` = ~3,800 chars per failure) and framework stack traces.
+A Redis port conflict causes 205 tests to error out. Raw Maven output: **5.4 MB** — mostly repeated Spring context dumps and framework stack traces.
 
 |  | Maven MCP | Bash (`./mvnw test`) |
 |---|---|---|
 | **Size** | ~9 KB | ~5.4 MB |
 | **Failures shown** | 2 (deduplicated) | 205 (all identical) |
-| **Root cause** | `InternalServerErrorException: bind: address already in use` | Buried in logs |
-| **Stack traces** | App frames + truncated headers | Full (repeated 205x) |
+| **Root cause** | `bind: address already in use` | Buried in logs |
 | **Reduction** | **~600x** | — |
 
-The pipeline: long exception headers are truncated to 200 chars, framework frames are collapsed, and 22 failures with the same root cause are grouped into 2 entries (one for the original error, one for Spring's "threshold exceeded" retries). The agent reads 9 KB of structured JSON instead of scrolling through 5 MB of logs.
+Exception headers are truncated, framework frames collapsed, and identical failures grouped by root cause. The agent reads 9 KB instead of 5 MB.
 
 ## Setup
 
@@ -82,19 +76,28 @@ The server auto-detects `./mvnw` in the project, falling back to system `mvn`.
 | Tool | What the agent gets back |
 |------|--------------------------|
 | `maven_compile` | Structured errors with file, line, column |
-| `maven_test` | Pass/fail summary with parsed Surefire reports, filtered stacktraces |
+| `maven_test` | Pass/fail summary, parsed Surefire reports, filtered stacktraces |
 | `maven_clean` | Build directory cleaned confirmation |
 
-### Smart stacktraces
+### `maven_test` in detail
 
-Test failures include only application frames. Framework noise is collapsed:
+The test tool does more than run `mvn test`:
 
-```
-com.example.MyService.process(MyService.java:42)
-com.example.MyController.handle(MyController.java:18)
-... 6 framework frames omitted
-```
+- **`testOnly` mode** (default) — runs `surefire:test` directly, skipping the full Maven lifecycle. If sources changed since last compile, auto-recompiles before running. Saves 2-5s per iteration.
+- **Smart stacktraces** — only application frames are shown, framework noise is collapsed:
+  ```
+  com.example.MyService.process(MyService.java:42)
+  com.example.MyController.handle(MyController.java:18)
+  ... 6 framework frames omitted
+  ```
+- **Failure deduplication** — 205 identical failures become 2 entries. Same root cause = one entry.
+- **Test filtering** — `testFilter: "MyTest"`, `testFilter: "MyTest#method"`, or `testFilter: "MyTest,OtherTest"`.
+- **Configurable output** — `stackTraceLines` (default 50), `appPackage` (auto-derived from pom.xml groupId), `testOutputLimit` per test.
 
 ## How it works
 
 Maven MCP spawns Maven as an external process (`./mvnw` or `mvn`), captures stdout/stderr, parses the output (compilation errors, Surefire XML reports), and returns structured JSON over MCP stdio transport. The agent never sees raw build logs.
+
+## License
+
+Apache-2.0
