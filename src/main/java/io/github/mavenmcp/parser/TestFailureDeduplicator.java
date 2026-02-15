@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Objects;
 
 /**
  * Deduplicates test failures that share the same root cause (identical message and stack trace).
@@ -59,9 +59,9 @@ public final class TestFailureDeduplicator {
         TestFailure first = group.getFirst();
 
         String testMethod = summarize(
-                group.stream().map(TestFailure::testMethod).collect(Collectors.toList()));
+                group.stream().map(TestFailure::testMethod).toList());
         String testClass = summarizeDistinct(
-                group.stream().map(TestFailure::testClass).collect(Collectors.toList()));
+                group.stream().map(TestFailure::testClass).toList());
         String testOutput = mergeTestOutput(group);
 
         return new TestFailure(testClass, testMethod, first.message(), first.stackTrace(), testOutput);
@@ -76,7 +76,7 @@ public final class TestFailureDeduplicator {
     }
 
     private static String summarizeDistinct(List<String> items) {
-        List<String> distinct = items.stream().distinct().collect(Collectors.toList());
+        List<String> distinct = items.stream().distinct().toList();
         if (distinct.size() == 1) {
             return distinct.getFirst();
         }
@@ -86,8 +86,8 @@ public final class TestFailureDeduplicator {
     private static String mergeTestOutput(List<TestFailure> group) {
         List<String> outputs = group.stream()
                 .map(TestFailure::testOutput)
-                .filter(o -> o != null)
-                .collect(Collectors.toList());
+                .filter(Objects::nonNull)
+                .toList();
         if (outputs.isEmpty()) {
             return null;
         }
