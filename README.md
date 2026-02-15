@@ -47,12 +47,12 @@ Requires Java 21+.
 ### 1. Download the JAR
 
 ```bash
-mvn dependency:get -Dartifact=io.github.mavenskills:maven-mcp:1.0.2
+mvn dependency:get -Dartifact=io.github.mavenskills:maven-mcp:1.0.3
 ```
 
 This puts the JAR into your local Maven cache at:
 ```
-~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.2/maven-mcp-1.0.2.jar
+~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.3/maven-mcp-1.0.3.jar
 ```
 
 ### 2. Configure your MCP client
@@ -66,7 +66,7 @@ Add to `.mcp.json` (Claude Code) or equivalent:
       "command": "java",
       "args": [
         "-jar",
-        "~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.2/maven-mcp-1.0.2.jar"
+        "~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.3/maven-mcp-1.0.3.jar"
       ]
     }
   }
