@@ -73,7 +73,7 @@ public final class CompileTool {
                         var buildResult = new BuildResult(
                                 status, execResult.duration(),
                                 parseResult.errors(), parseResult.warnings(),
-                                null, null, null, output);
+                                null, null, null, output, null);
 
                         String json = objectMapper.writeValueAsString(buildResult);
                         return new CallToolResult(List.of(new TextContent(json)), false);

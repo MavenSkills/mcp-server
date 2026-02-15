@@ -65,7 +65,7 @@ public final class CleanTool {
 
                         var buildResult = new BuildResult(
                                 status, execResult.duration(),
-                                null, null, null, null, null, output);
+                                null, null, null, null, null, output, null);
 
                         String json = objectMapper.writeValueAsString(buildResult);
                         return new CallToolResult(List.of(new TextContent(json)), false);

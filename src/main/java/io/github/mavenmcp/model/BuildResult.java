@@ -16,6 +16,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * @param failures individual test failures, null for non-test tools
  * @param artifact built artifact info, null unless maven_package succeeds
  * @param output   raw Maven output, only populated on FAILURE
+ * @param note     contextual note about execution mode, null when not applicable
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record BuildResult(
@@ -26,7 +27,8 @@ public record BuildResult(
         TestSummary summary,
         List<TestFailure> failures,
         Object artifact,
-        String output
+        String output,
+        String note
 ) {
 
     /** Status constants */

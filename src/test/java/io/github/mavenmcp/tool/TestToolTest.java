@@ -34,6 +34,8 @@ class TestToolTest {
         objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
         config = new ServerConfig(tempDir, Path.of("/usr/bin/mvn"));
         reportsDir = tempDir.resolve("target/surefire-reports");
+        // Create target/test-classes so the testOnly pre-flight guard passes (default is now true)
+        Files.createDirectories(tempDir.resolve("target/test-classes"));
     }
 
     @Test
@@ -260,39 +262,32 @@ class TestToolTest {
     class TestOnlyMode {
 
         @Test
-        void shouldUseTestGoalByDefault() {
+        void shouldUseSurefireGoalByDefault() {
             var runner = new TestRunners.CapturingRunner();
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
             spec.call().apply(null, Map.of());
 
-            assertThat(runner.capturedGoal).isEqualTo("test");
-        }
-
-        @Test
-        void shouldUseTestGoalWhenTestOnlyFalse() {
-            var runner = new TestRunners.CapturingRunner();
-            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
-
-            spec.call().apply(null, Map.of("testOnly", false));
-
-            assertThat(runner.capturedGoal).isEqualTo("test");
-        }
-
-        @Test
-        void shouldUseSurefireGoalWhenTestOnlyTrue() throws IOException {
-            Files.createDirectories(tempDir.resolve("target/test-classes"));
-            var runner = new TestRunners.CapturingRunner();
-            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
-
-            spec.call().apply(null, Map.of("testOnly", true));
-
             assertThat(runner.capturedGoal).isEqualTo("surefire:test");
         }
 
         @Test
-        void shouldReturnErrorWhenTestOnlyTrueAndNoTestClasses() {
-            // Do NOT create target/test-classes
+        void shouldUseTestGoalWhenTestOnlyFalse() throws Exception {
+            var runner = new TestRunners.CapturingRunner();
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            CallToolResult result = spec.call().apply(null, Map.of("testOnly", false));
+
+            assertThat(runner.capturedGoal).isEqualTo("test");
+            // note should be null when testOnly=false
+            String json = result.content().getFirst().toString();
+            assertThat(json).doesNotContain("\"note\"");
+        }
+
+        @Test
+        void shouldReturnErrorWhenTestOnlyTrueAndNoTestClasses() throws IOException {
+            // Remove target/test-classes created by setUp
+            Files.delete(tempDir.resolve("target/test-classes"));
             var runner = new TestRunners.CapturingRunner();
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
@@ -305,8 +300,7 @@ class TestToolTest {
         }
 
         @Test
-        void shouldCombineTestOnlyWithTestFilter() throws IOException {
-            Files.createDirectories(tempDir.resolve("target/test-classes"));
+        void shouldCombineTestOnlyWithTestFilter() {
             var runner = new TestRunners.CapturingRunner();
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
@@ -315,6 +309,117 @@ class TestToolTest {
             assertThat(runner.capturedGoal).isEqualTo("surefire:test");
             assertThat(runner.capturedArgs).contains("-Dtest=MyTest");
             assertThat(runner.capturedArgs).contains("-DfailIfNoTests=false");
+        }
+
+        @Test
+        void shouldIncludeNoteWhenTestOnlyTrue() throws Exception {
+            var runner = new TestRunners.CapturingRunner();
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            CallToolResult result = spec.call().apply(null, Map.of("testOnly", true));
+
+            String json = result.content().getFirst().toString();
+            assertThat(json).contains("Ran in testOnly mode (surefire:test)");
+            assertThat(json).contains("re-run with testOnly=false for a full build");
+        }
+
+        @Test
+        void shouldAutoRecompileWhenStaleClassesDetected() throws Exception {
+            // Create class file first, then source file (source is newer = stale)
+            Path classesDir = tempDir.resolve("target/classes");
+            Files.createDirectories(classesDir);
+            Files.writeString(classesDir.resolve("Foo.class"), "bytecode");
+
+            Thread.sleep(50); // ensure timestamp difference
+
+            Path srcDir = tempDir.resolve("src/main/java");
+            Files.createDirectories(srcDir);
+            Files.writeString(srcDir.resolve("Foo.java"), "source");
+
+            var runner = new TestRunners.CapturingRunner();
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            CallToolResult result = spec.call().apply(null, Map.of("testOnly", true));
+
+            // Should have two invocations: recompile + surefire:test
+            assertThat(runner.allGoals).containsExactly(
+                    "compiler:compile compiler:testCompile", "surefire:test");
+            String json = result.content().getFirst().toString();
+            assertThat(json).contains("auto-recompiled via compiler:compile compiler:testCompile");
+        }
+
+        @Test
+        void shouldReturnCompilationErrorWhenAutoRecompileFails() throws Exception {
+            // Create stale classes
+            Path classesDir = tempDir.resolve("target/classes");
+            Files.createDirectories(classesDir);
+            Files.writeString(classesDir.resolve("Foo.class"), "bytecode");
+
+            Thread.sleep(50);
+
+            Path srcDir = tempDir.resolve("src/main/java");
+            Files.createDirectories(srcDir);
+            Files.writeString(srcDir.resolve("Foo.java"), "source");
+
+            var runner = new TestRunners.CapturingRunner();
+            runner.failOnGoal("compiler:compile compiler:testCompile");
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            CallToolResult result = spec.call().apply(null, Map.of("testOnly", true));
+
+            // Only recompile invocation, no surefire:test
+            assertThat(runner.allGoals).containsExactly("compiler:compile compiler:testCompile");
+            String json = result.content().getFirst().toString();
+            assertThat(json).contains("FAILURE");
+        }
+    }
+
+    @Nested
+    class StaleClassesDetection {
+
+        @Test
+        void shouldDetectStaleWhenSourceNewerThanClass() throws Exception {
+            Path classesDir = tempDir.resolve("target/classes");
+            Files.createDirectories(classesDir);
+            Files.writeString(classesDir.resolve("Foo.class"), "bytecode");
+
+            Thread.sleep(50);
+
+            Path srcDir = tempDir.resolve("src/main/java");
+            Files.createDirectories(srcDir);
+            Files.writeString(srcDir.resolve("Foo.java"), "source");
+
+            assertThat(TestTool.checkStaleClasses(tempDir)).isTrue();
+        }
+
+        @Test
+        void shouldNotDetectStaleWhenClassNewerThanSource() throws Exception {
+            Path srcDir = tempDir.resolve("src/main/java");
+            Files.createDirectories(srcDir);
+            Files.writeString(srcDir.resolve("Foo.java"), "source");
+
+            Thread.sleep(50);
+
+            Path classesDir = tempDir.resolve("target/classes");
+            Files.createDirectories(classesDir);
+            Files.writeString(classesDir.resolve("Foo.class"), "bytecode");
+
+            assertThat(TestTool.checkStaleClasses(tempDir)).isFalse();
+        }
+
+        @Test
+        void shouldNotDetectStaleWhenSrcMissing() throws IOException {
+            Files.createDirectories(tempDir.resolve("target/classes"));
+            assertThat(TestTool.checkStaleClasses(tempDir)).isFalse();
+        }
+
+        @Test
+        void shouldNotDetectStaleWhenClassesMissing() throws Exception {
+            Path srcDir = tempDir.resolve("src/main/java");
+            Files.createDirectories(srcDir);
+            Files.writeString(srcDir.resolve("Foo.java"), "source");
+
+            assertThat(TestTool.checkStaleClasses(tempDir)).isFalse();
         }
     }
 

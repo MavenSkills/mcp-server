@@ -1,7 +1,10 @@
 package io.github.mavenmcp.tool;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import io.github.mavenmcp.maven.MavenExecutionException;
 import io.github.mavenmcp.maven.MavenExecutionResult;
@@ -32,12 +35,20 @@ final class TestRunners {
     static class CapturingRunner extends MavenRunner {
         String capturedGoal;
         List<String> capturedArgs;
+        final List<String> allGoals = new ArrayList<>();
+        private final Set<String> failingGoals = new HashSet<>();
+
+        void failOnGoal(String goal) {
+            failingGoals.add(goal);
+        }
 
         @Override
         public MavenExecutionResult execute(String goal, List<String> extraArgs, Path exe, Path dir) {
             capturedGoal = goal;
             capturedArgs = extraArgs;
-            return new MavenExecutionResult(0, "", "", 100);
+            allGoals.add(goal);
+            int exitCode = failingGoals.contains(goal) ? 1 : 0;
+            return new MavenExecutionResult(exitCode, "", "", 100);
         }
     }
 
