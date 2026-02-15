@@ -256,6 +256,68 @@ class TestToolTest {
         }
     }
 
+    @Nested
+    class TestOnlyMode {
+
+        @Test
+        void shouldUseTestGoalByDefault() {
+            var runner = new TestRunners.CapturingRunner();
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            spec.call().apply(null, Map.of());
+
+            assertThat(runner.capturedGoal).isEqualTo("test");
+        }
+
+        @Test
+        void shouldUseTestGoalWhenTestOnlyFalse() {
+            var runner = new TestRunners.CapturingRunner();
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            spec.call().apply(null, Map.of("testOnly", false));
+
+            assertThat(runner.capturedGoal).isEqualTo("test");
+        }
+
+        @Test
+        void shouldUseSurefireGoalWhenTestOnlyTrue() throws IOException {
+            Files.createDirectories(tempDir.resolve("target/test-classes"));
+            var runner = new TestRunners.CapturingRunner();
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            spec.call().apply(null, Map.of("testOnly", true));
+
+            assertThat(runner.capturedGoal).isEqualTo("surefire:test");
+        }
+
+        @Test
+        void shouldReturnErrorWhenTestOnlyTrueAndNoTestClasses() {
+            // Do NOT create target/test-classes
+            var runner = new TestRunners.CapturingRunner();
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            CallToolResult result = spec.call().apply(null, Map.of("testOnly", true));
+
+            assertThat(result.isError()).isTrue();
+            assertThat(result.content().getFirst().toString())
+                    .contains("Project not compiled. Run maven_compile first or set testOnly=false.");
+            assertThat(runner.capturedGoal).isNull(); // Maven was never invoked
+        }
+
+        @Test
+        void shouldCombineTestOnlyWithTestFilter() throws IOException {
+            Files.createDirectories(tempDir.resolve("target/test-classes"));
+            var runner = new TestRunners.CapturingRunner();
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            spec.call().apply(null, Map.of("testOnly", true, "testFilter", "MyTest"));
+
+            assertThat(runner.capturedGoal).isEqualTo("surefire:test");
+            assertThat(runner.capturedArgs).contains("-Dtest=MyTest");
+            assertThat(runner.capturedArgs).contains("-DfailIfNoTests=false");
+        }
+    }
+
     private void copyFixture(String filename) throws IOException {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream("surefire-reports/" + filename)) {
             if (is == null) throw new RuntimeException("Fixture not found: " + filename);
