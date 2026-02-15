@@ -117,13 +117,7 @@ public final class StackTraceProcessor {
 
         int frameworkCount = 0;
         for (String frame : frames) {
-            if (isStructuralLine(frame)) {
-                if (frameworkCount > 0) {
-                    output.add("\t... " + frameworkCount + " framework frames omitted");
-                    frameworkCount = 0;
-                }
-                output.add(frame);
-            } else if (isApplicationFrame(frame, appPackage)) {
+            if (isStructuralLine(frame) || isApplicationFrame(frame, appPackage)) {
                 if (frameworkCount > 0) {
                     output.add("\t... " + frameworkCount + " framework frames omitted");
                     frameworkCount = 0;
@@ -151,20 +145,17 @@ public final class StackTraceProcessor {
         int appFrameCount = 0;
         int frameworkCount = 0;
         for (String frame : frames) {
-            if (isStructuralLine(frame)) {
+            boolean structural = isStructuralLine(frame);
+            if (structural || isApplicationFrame(frame, appPackage)) {
                 if (frameworkCount > 0) {
                     output.add("\t... " + frameworkCount + " framework frames omitted");
                     frameworkCount = 0;
                 }
-                output.add(frame);
-            } else if (isApplicationFrame(frame, appPackage)) {
-                if (frameworkCount > 0) {
-                    output.add("\t... " + frameworkCount + " framework frames omitted");
-                    frameworkCount = 0;
-                }
-                if (appFrameCount < DEFAULT_ROOT_CAUSE_APP_FRAMES) {
+                if (structural || appFrameCount < DEFAULT_ROOT_CAUSE_APP_FRAMES) {
                     output.add(frame);
-                    appFrameCount++;
+                    if (!structural) {
+                        appFrameCount++;
+                    }
                 }
             } else {
                 frameworkCount++;
@@ -203,7 +194,7 @@ public final class StackTraceProcessor {
             return true;
         }
         // Indented "Caused by:" — inside a suppressed block (top-level has no leading whitespace)
-        return stripped.startsWith("Caused by:") && !line.isEmpty() && Character.isWhitespace(line.charAt(0));
+        return stripped.startsWith("Caused by:") && Character.isWhitespace(line.charAt(0));
     }
 
     /**

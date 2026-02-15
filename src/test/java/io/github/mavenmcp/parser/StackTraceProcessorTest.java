@@ -221,10 +221,12 @@ class StackTraceProcessorTest {
 
         String result = StackTraceProcessor.process(trace, APP_PACKAGE, 0);
 
-        assertThat(result).contains("... 2 framework frames omitted");
         assertThat(result).contains("\tSuppressed: java.lang.Exception: cleanup failed");
-        // Framework frames after suppressed header collapsed separately
-        assertThat(result).contains("... 2 framework frames omitted");
+        // Two separate groups of 2 framework frames collapsed independently
+        long collapseCount = result.lines()
+                .filter(l -> l.contains("... 2 framework frames omitted"))
+                .count();
+        assertThat(collapseCount).isEqualTo(2);
     }
 
     @Test
