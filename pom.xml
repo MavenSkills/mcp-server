@@ -12,6 +12,13 @@
     <name>Maven MCP Server</name>
     <description>MCP server wrapping Maven CLI operations for AI agents</description>
 
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+        </license>
+    </licenses>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
