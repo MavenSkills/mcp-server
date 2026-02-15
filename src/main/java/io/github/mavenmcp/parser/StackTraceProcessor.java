@@ -88,7 +88,9 @@ public final class StackTraceProcessor {
                 // First line is always the top-level exception header
                 currentHeader = line;
             } else if (line.startsWith("Caused by:")) {
-                // Save current segment, start new one
+                // Only matches non-indented lines — indented "Caused by:" inside suppressed
+                // blocks (e.g. "\tCaused by:") stays as a frame line. isStructuralLine() relies
+                // on this invariant to preserve those headers during frame collapsing.
                 segments.add(new Segment(currentHeader, List.copyOf(currentFrames)));
                 currentFrames.clear();
                 currentHeader = line;
@@ -117,7 +119,7 @@ public final class StackTraceProcessor {
 
         int frameworkCount = 0;
         for (String frame : frames) {
-            if (isApplicationFrame(frame, appPackage)) {
+            if (isStructuralLine(frame) || isApplicationFrame(frame, appPackage)) {
                 if (frameworkCount > 0) {
                     output.add("\t... " + frameworkCount + " framework frames omitted");
                     frameworkCount = 0;
@@ -145,14 +147,17 @@ public final class StackTraceProcessor {
         int appFrameCount = 0;
         int frameworkCount = 0;
         for (String frame : frames) {
-            if (isApplicationFrame(frame, appPackage)) {
+            boolean structural = isStructuralLine(frame);
+            if (structural || isApplicationFrame(frame, appPackage)) {
                 if (frameworkCount > 0) {
                     output.add("\t... " + frameworkCount + " framework frames omitted");
                     frameworkCount = 0;
                 }
-                if (appFrameCount < DEFAULT_ROOT_CAUSE_APP_FRAMES) {
+                if (structural || appFrameCount < DEFAULT_ROOT_CAUSE_APP_FRAMES) {
                     output.add(frame);
-                    appFrameCount++;
+                    if (!structural) {
+                        appFrameCount++;
+                    }
                 }
             } else {
                 frameworkCount++;
@@ -178,6 +183,23 @@ public final class StackTraceProcessor {
         }
         // Lines like "\t... 42 more" are framework artifacts
         return false;
+    }
+
+    /**
+     * Check if a line is a structural exception header that must always be preserved.
+     * This includes {@code Suppressed:} lines and indented {@code Caused by:} lines
+     * (which appear inside suppressed blocks in standard JDK format).
+     */
+    static boolean isStructuralLine(String line) {
+        if (line.isEmpty()) {
+            return false;
+        }
+        String stripped = line.strip();
+        if (stripped.startsWith("Suppressed:")) {
+            return true;
+        }
+        // Indented "Caused by:" — inside a suppressed block (top-level has no leading whitespace)
+        return stripped.startsWith("Caused by:") && Character.isWhitespace(line.charAt(0));
     }
 
     /**
