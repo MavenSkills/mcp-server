@@ -1,11 +1,16 @@
 package io.github.mavenmcp.tool;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.mavenmcp.config.ServerConfig;
@@ -72,7 +77,7 @@ public final class TestTool {
                 },
                 "testOnly": {
                   "type": "boolean",
-                  "description": "If true, run surefire:test directly (skips compile/generate-sources phases). Requires prior compilation. Default: false."
+                  "description": "Default: true (skips lifecycle, runs surefire:test directly with auto-recompile if sources changed). Set to false when changes go beyond Java source code — e.g., build config (pom.xml), generated source templates, new dependencies, or resource files that affect compilation."
                 }
               }
             }
@@ -99,15 +104,45 @@ public final class TestTool {
                         boolean includeTestLogs = ToolUtils.extractBoolean(params, "includeTestLogs", true);
                         int testOutputLimit = ToolUtils.extractInt(params, "testOutputLimit",
                                 SurefireReportParser.DEFAULT_PER_TEST_OUTPUT_LIMIT);
-                        boolean testOnly = ToolUtils.extractBoolean(params, "testOnly", false);
+                        boolean testOnly = ToolUtils.extractBoolean(params, "testOnly", true);
 
                         String goal = testOnly ? "surefire:test" : "test";
+                        String note = null;
 
                         // Pre-flight guard: surefire:test requires compiled classes
                         if (testOnly && !Files.isDirectory(config.projectDir().resolve("target/test-classes"))) {
                             return new CallToolResult(
                                     List.of(new TextContent("Project not compiled. Run maven_compile first or set testOnly=false.")),
                                     true);
+                        }
+
+                        // Stale-classes detection and auto-recompile (testOnly mode only)
+                        if (testOnly) {
+                            if (checkStaleClasses(config.projectDir())) {
+                                log.info("Stale classes detected, auto-recompiling via compiler:compile compiler:testCompile");
+                                MavenExecutionResult recompileResult = runner.execute(
+                                        "compiler:compile compiler:testCompile", List.of(),
+                                        config.mavenExecutable(), config.projectDir());
+
+                                if (!recompileResult.isSuccess()) {
+                                    var parseResult = CompilationOutputParser.parse(
+                                            recompileResult.stdout(), config.projectDir());
+                                    String output = MavenOutputFilter.filter(recompileResult.stdout());
+                                    var buildResult = new BuildResult(
+                                            BuildResult.FAILURE, recompileResult.duration(),
+                                            parseResult.errors(), parseResult.warnings(),
+                                            null, null, null, output, null);
+                                    String json = objectMapper.writeValueAsString(buildResult);
+                                    return new CallToolResult(List.of(new TextContent(json)), false);
+                                }
+
+                                note = "Ran in testOnly mode. Stale sources detected — auto-recompiled via "
+                                        + "compiler:compile compiler:testCompile (generate-sources was skipped). "
+                                        + "If tests still fail unexpectedly, re-run with testOnly=false for a full build.";
+                            } else {
+                                note = "Ran in testOnly mode (surefire:test). Lifecycle phases (generate-sources, compile) "
+                                        + "were skipped. If tests fail unexpectedly, re-run with testOnly=false for a full build.";
+                            }
                         }
 
                         log.info("maven_test called with goal: {}, args: {}, stackTraceLines: {}, appPackage: {}",
@@ -137,7 +172,7 @@ public final class TestTool {
                                     status, execResult.duration(),
                                     null, null,
                                     sr.summary(), deduplicatedFailures,
-                                    null, output);
+                                    null, output, note);
                         } else if (!execResult.isSuccess()) {
                             // No XML reports + failure = likely compilation error
                             var parseResult = CompilationOutputParser.parse(
@@ -145,12 +180,12 @@ public final class TestTool {
                             buildResult = new BuildResult(
                                     status, execResult.duration(),
                                     parseResult.errors(), parseResult.warnings(),
-                                    null, null, null, output);
+                                    null, null, null, output, note);
                         } else {
                             // Success but no XML (shouldn't happen normally)
                             buildResult = new BuildResult(
                                     status, execResult.duration(),
-                                    null, null, null, null, null, null);
+                                    null, null, null, null, null, null, note);
                         }
 
                         String json = objectMapper.writeValueAsString(buildResult);
@@ -231,5 +266,51 @@ public final class TestTool {
             log.debug("Failed to derive groupId from pom.xml: {}", e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Check if compiled classes are stale by comparing newest .java timestamp
+     * under src/ against newest .class timestamp under target/classes/.
+     */
+    static boolean checkStaleClasses(Path projectDir) {
+        try {
+            Path srcDir = projectDir.resolve("src");
+            Path classesDir = projectDir.resolve("target/classes");
+
+            if (!Files.isDirectory(srcDir) || !Files.isDirectory(classesDir)) {
+                return false;
+            }
+
+            Optional<FileTime> newestSource;
+            try (var stream = Files.walk(srcDir)) {
+                newestSource = stream
+                        .filter(p -> p.toString().endsWith(".java"))
+                        .map(p -> {
+                            try { return Files.getLastModifiedTime(p); }
+                            catch (IOException e) { return null; }
+                        })
+                        .filter(Objects::nonNull)
+                        .max(Comparator.naturalOrder());
+            }
+
+            Optional<FileTime> newestClass;
+            try (var stream = Files.walk(classesDir)) {
+                newestClass = stream
+                        .filter(p -> p.toString().endsWith(".class"))
+                        .map(p -> {
+                            try { return Files.getLastModifiedTime(p); }
+                            catch (IOException e) { return null; }
+                        })
+                        .filter(Objects::nonNull)
+                        .max(Comparator.naturalOrder());
+            }
+
+            return newestSource.isPresent() && newestClass.isPresent()
+                    && newestSource.get().compareTo(newestClass.get()) > 0;
+
+        } catch (IOException e) {
+            log.debug("Failed to check stale classes: {}", e.getMessage());
+            return false;
+        }
     }
 }

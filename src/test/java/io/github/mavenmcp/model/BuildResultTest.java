@@ -16,7 +16,7 @@ class BuildResultTest {
         var result = new BuildResult(
                 BuildResult.SUCCESS, 1200,
                 List.of(), List.of(),
-                null, null, null, null
+                null, null, null, null, null
         );
 
         String json = mapper.writeValueAsString(result);
@@ -35,7 +35,7 @@ class BuildResultTest {
         var result = new BuildResult(
                 BuildResult.FAILURE, 3000,
                 List.of(error), List.of(),
-                null, null, null, "raw output here"
+                null, null, null, "raw output here", null
         );
 
         String json = mapper.writeValueAsString(result);

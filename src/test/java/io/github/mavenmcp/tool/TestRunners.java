@@ -32,12 +32,20 @@ final class TestRunners {
     static class CapturingRunner extends MavenRunner {
         String capturedGoal;
         List<String> capturedArgs;
+        final java.util.ArrayList<String> allGoals = new java.util.ArrayList<>();
+        private final java.util.Set<String> failingGoals = new java.util.HashSet<>();
+
+        void failOnGoal(String goal) {
+            failingGoals.add(goal);
+        }
 
         @Override
         public MavenExecutionResult execute(String goal, List<String> extraArgs, Path exe, Path dir) {
             capturedGoal = goal;
             capturedArgs = extraArgs;
-            return new MavenExecutionResult(0, "", "", 100);
+            allGoals.add(goal);
+            int exitCode = failingGoals.contains(goal) ? 1 : 0;
+            return new MavenExecutionResult(exitCode, "", "", 100);
         }
     }
 
