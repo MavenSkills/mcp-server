@@ -117,7 +117,13 @@ public final class StackTraceProcessor {
 
         int frameworkCount = 0;
         for (String frame : frames) {
-            if (isApplicationFrame(frame, appPackage)) {
+            if (isStructuralLine(frame)) {
+                if (frameworkCount > 0) {
+                    output.add("\t... " + frameworkCount + " framework frames omitted");
+                    frameworkCount = 0;
+                }
+                output.add(frame);
+            } else if (isApplicationFrame(frame, appPackage)) {
                 if (frameworkCount > 0) {
                     output.add("\t... " + frameworkCount + " framework frames omitted");
                     frameworkCount = 0;
@@ -145,7 +151,13 @@ public final class StackTraceProcessor {
         int appFrameCount = 0;
         int frameworkCount = 0;
         for (String frame : frames) {
-            if (isApplicationFrame(frame, appPackage)) {
+            if (isStructuralLine(frame)) {
+                if (frameworkCount > 0) {
+                    output.add("\t... " + frameworkCount + " framework frames omitted");
+                    frameworkCount = 0;
+                }
+                output.add(frame);
+            } else if (isApplicationFrame(frame, appPackage)) {
                 if (frameworkCount > 0) {
                     output.add("\t... " + frameworkCount + " framework frames omitted");
                     frameworkCount = 0;
@@ -178,6 +190,20 @@ public final class StackTraceProcessor {
         }
         // Lines like "\t... 42 more" are framework artifacts
         return false;
+    }
+
+    /**
+     * Check if a line is a structural exception header that must always be preserved.
+     * This includes {@code Suppressed:} lines and indented {@code Caused by:} lines
+     * (which appear inside suppressed blocks in standard JDK format).
+     */
+    static boolean isStructuralLine(String line) {
+        String stripped = line.strip();
+        if (stripped.startsWith("Suppressed:")) {
+            return true;
+        }
+        // Indented "Caused by:" — inside a suppressed block (top-level has no leading whitespace)
+        return stripped.startsWith("Caused by:") && !line.isEmpty() && Character.isWhitespace(line.charAt(0));
     }
 
     /**

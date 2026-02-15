@@ -184,4 +184,139 @@ class StackTraceProcessorTest {
                 "\tat org.springframework.test.TestRunner.run(TestRunner.java:10)", null))
                 .isTrue();
     }
+
+    @Test
+    void shouldRecognizeStructuralLines() {
+        // Suppressed: with tab prefix → structural
+        assertThat(StackTraceProcessor.isStructuralLine(
+                "\tSuppressed: java.lang.Exception: cleanup failed"))
+                .isTrue();
+        // Indented Caused by: with tab prefix → structural
+        assertThat(StackTraceProcessor.isStructuralLine(
+                "\t\tCaused by: java.lang.RuntimeException: inner"))
+                .isTrue();
+        // Top-level Caused by: (no whitespace) → NOT structural
+        assertThat(StackTraceProcessor.isStructuralLine(
+                "Caused by: java.lang.Exception: root"))
+                .isFalse();
+        // Regular at frame → NOT structural
+        assertThat(StackTraceProcessor.isStructuralLine(
+                "\tat org.framework.Runner.execute(Runner.java:50)"))
+                .isFalse();
+        // "... 42 more" line → NOT structural
+        assertThat(StackTraceProcessor.isStructuralLine(
+                "\t... 42 more"))
+                .isFalse();
+    }
+
+    @Test
+    void shouldPreserveSuppressedHeaderBetweenFrameworkFrames() {
+        String trace = """
+                java.lang.Exception: main
+                \tat org.framework.A.a(A.java:1)
+                \tat org.framework.B.b(B.java:2)
+                \tSuppressed: java.lang.Exception: cleanup failed
+                \t\tat org.framework.C.c(C.java:3)
+                \t\tat org.framework.D.d(D.java:4)""";
+
+        String result = StackTraceProcessor.process(trace, APP_PACKAGE, 0);
+
+        assertThat(result).contains("... 2 framework frames omitted");
+        assertThat(result).contains("\tSuppressed: java.lang.Exception: cleanup failed");
+        // Framework frames after suppressed header collapsed separately
+        assertThat(result).contains("... 2 framework frames omitted");
+    }
+
+    @Test
+    void shouldPreserveIndentedCausedByInsideSuppressedBlock() {
+        String trace = """
+                java.lang.Exception: main
+                \tat io.github.mavenmcp.Main.run(Main.java:10)
+                \tSuppressed: java.lang.Exception: sup
+                \t\tat org.framework.Pool.release(Pool.java:80)
+                \t\tCaused by: java.lang.RuntimeException: inner
+                \t\t\tat org.framework.IO.sync(IO.java:100)""";
+
+        String result = StackTraceProcessor.process(trace, APP_PACKAGE, 0);
+
+        assertThat(result).contains("\t\tCaused by: java.lang.RuntimeException: inner");
+    }
+
+    @Test
+    void shouldCollapseFrameworkFramesInsideSuppressedBlock() {
+        String trace = """
+                java.lang.Exception: main
+                \tat io.github.mavenmcp.Main.run(Main.java:10)
+                \tSuppressed: java.lang.Exception: sup
+                \t\tat io.github.mavenmcp.Resource.close(Resource.java:20)
+                \t\tat org.framework.Pool.release(Pool.java:80)
+                \t\tat org.framework.Pool.cleanup(Pool.java:85)""";
+
+        String result = StackTraceProcessor.process(trace, APP_PACKAGE, 0);
+
+        assertThat(result).contains("\tSuppressed: java.lang.Exception: sup");
+        assertThat(result).contains("io.github.mavenmcp.Resource.close");
+        assertThat(result).contains("... 2 framework frames omitted");
+    }
+
+    @Test
+    void shouldPreserveAllHeadersInEndToEndSuppressedTrace() {
+        String trace = """
+                java.lang.Exception: main
+                \tat io.github.mavenmcp.Main.run(Main.java:10)
+                \tat org.framework.Runner.execute(Runner.java:50)
+                \tSuppressed: java.lang.Exception: cleanup failed
+                \t\tat io.github.mavenmcp.Resource.close(Resource.java:20)
+                \t\tat org.framework.Pool.release(Pool.java:80)
+                \t\tCaused by: java.lang.RuntimeException: IO error
+                \t\t\tat io.github.mavenmcp.Resource.flush(Resource.java:30)
+                \t\t\tat org.framework.IO.sync(IO.java:100)
+                Caused by: java.lang.IllegalStateException: root cause
+                \tat io.github.mavenmcp.Main.init(Main.java:5)
+                \tat org.framework.Bootstrap.start(Bootstrap.java:200)""";
+
+        String result = StackTraceProcessor.process(trace, APP_PACKAGE, 0);
+
+        // All 4 exception headers present
+        assertThat(result).contains("java.lang.Exception: main");
+        assertThat(result).contains("\tSuppressed: java.lang.Exception: cleanup failed");
+        assertThat(result).contains("\t\tCaused by: java.lang.RuntimeException: IO error");
+        assertThat(result).contains("Caused by: java.lang.IllegalStateException: root cause");
+
+        // App frames preserved
+        assertThat(result).contains("io.github.mavenmcp.Main.run");
+        assertThat(result).contains("io.github.mavenmcp.Resource.close");
+        assertThat(result).contains("io.github.mavenmcp.Resource.flush");
+        assertThat(result).contains("io.github.mavenmcp.Main.init");
+
+        // Framework frames collapsed (not present verbatim)
+        assertThat(result).doesNotContain("org.framework.Runner.execute");
+        assertThat(result).doesNotContain("org.framework.Pool.release");
+        assertThat(result).doesNotContain("org.framework.IO.sync");
+        assertThat(result).doesNotContain("org.framework.Bootstrap.start");
+    }
+
+    @Test
+    void shouldPassSuppressedBlockUnchangedWhenNoAppPackage() {
+        String trace = """
+                java.lang.Exception: main
+                \tat com.example.Main.run(Main.java:10)
+                \tSuppressed: java.lang.Exception: sup
+                \t\tat com.example.Resource.close(Resource.java:20)
+                \t\tCaused by: java.lang.RuntimeException: inner
+                \t\t\tat com.example.Resource.flush(Resource.java:30)
+                Caused by: java.lang.Exception: root
+                \tat com.example.Main.init(Main.java:5)""";
+
+        String result = StackTraceProcessor.process(trace, null, 0);
+
+        // All lines preserved verbatim — no collapsing
+        assertThat(result).contains("\tat com.example.Main.run(Main.java:10)");
+        assertThat(result).contains("\tSuppressed: java.lang.Exception: sup");
+        assertThat(result).contains("\t\tat com.example.Resource.close(Resource.java:20)");
+        assertThat(result).contains("\t\tCaused by: java.lang.RuntimeException: inner");
+        assertThat(result).contains("\t\t\tat com.example.Resource.flush(Resource.java:30)");
+        assertThat(result).contains("Caused by: java.lang.Exception: root");
+        assertThat(result).doesNotContain("framework frames omitted");
+    }
 }
