@@ -14,8 +14,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
 
         <!-- Dependency versions -->
         <mcp-sdk.version>0.17.2</mcp-sdk.version>
@@ -69,10 +69,35 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
-                <configuration>
-                    <source>25</source>
-                    <target>25</target>
-                </configuration>
+                <executions>
+                    <!-- Bootstrap class compiled at Java 11 for early JVM version check -->
+                    <execution>
+                        <id>compile-bootstrap</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <source>11</source>
+                            <target>11</target>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java-bootstrap</compileSourceRoot>
+                            </compileSourceRoots>
+                        </configuration>
+                    </execution>
+                    <!-- Main application code at Java 21 -->
+                    <execution>
+                        <id>default-compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <source>21</source>
+                            <target>21</target>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -92,7 +117,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>io.github.mavenmcp.MavenMcpServer</mainClass>
+                                    <mainClass>io.github.mavenmcp.Bootstrap</mainClass>
                                 </transformer>
                             </transformers>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
