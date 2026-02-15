@@ -38,7 +38,7 @@ public class MavenMcpServer implements Callable<Integer> {
 
     private static final Logger log = LoggerFactory.getLogger(MavenMcpServer.class);
     private static final String SERVER_NAME = "maven-mcp";
-    private static final String SERVER_VERSION = "1.0.0";
+    private static final String SERVER_VERSION = loadVersion();
 
     @Option(names = "--project", required = true,
             description = "Path to the Maven project directory")
@@ -122,6 +122,20 @@ public class MavenMcpServer implements Callable<Integer> {
 
     public MavenRunner getMavenRunner() {
         return mavenRunner;
+    }
+
+
+    private static String loadVersion() {
+        try (var in = MavenMcpServer.class.getResourceAsStream("/maven-mcp.properties")) {
+            if (in != null) {
+                var props = new java.util.Properties();
+                props.load(in);
+                return props.getProperty("version", "unknown");
+            }
+        } catch (Exception e) {
+            // fall through
+        }
+        return "unknown";
     }
 
     public static void main(String[] args) {
