@@ -262,8 +262,7 @@ class TestToolTest {
     class TestOnlyMode {
 
         @Test
-        void shouldUseSurefireGoalByDefault() throws IOException {
-            Files.createDirectories(tempDir.resolve("target/test-classes"));
+        void shouldUseSurefireGoalByDefault() {
             var runner = new TestRunners.CapturingRunner();
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
@@ -301,8 +300,7 @@ class TestToolTest {
         }
 
         @Test
-        void shouldCombineTestOnlyWithTestFilter() throws IOException {
-            Files.createDirectories(tempDir.resolve("target/test-classes"));
+        void shouldCombineTestOnlyWithTestFilter() {
             var runner = new TestRunners.CapturingRunner();
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
@@ -315,7 +313,6 @@ class TestToolTest {
 
         @Test
         void shouldIncludeNoteWhenTestOnlyTrue() throws Exception {
-            Files.createDirectories(tempDir.resolve("target/test-classes"));
             var runner = new TestRunners.CapturingRunner();
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
@@ -328,7 +325,6 @@ class TestToolTest {
 
         @Test
         void shouldAutoRecompileWhenStaleClassesDetected() throws Exception {
-            Files.createDirectories(tempDir.resolve("target/test-classes"));
             // Create class file first, then source file (source is newer = stale)
             Path classesDir = tempDir.resolve("target/classes");
             Files.createDirectories(classesDir);
@@ -354,7 +350,6 @@ class TestToolTest {
 
         @Test
         void shouldReturnCompilationErrorWhenAutoRecompileFails() throws Exception {
-            Files.createDirectories(tempDir.resolve("target/test-classes"));
             // Create stale classes
             Path classesDir = tempDir.resolve("target/classes");
             Files.createDirectories(classesDir);

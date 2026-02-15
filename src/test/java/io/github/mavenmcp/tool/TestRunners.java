@@ -1,7 +1,10 @@
 package io.github.mavenmcp.tool;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import io.github.mavenmcp.maven.MavenExecutionException;
 import io.github.mavenmcp.maven.MavenExecutionResult;
@@ -32,8 +35,8 @@ final class TestRunners {
     static class CapturingRunner extends MavenRunner {
         String capturedGoal;
         List<String> capturedArgs;
-        final java.util.ArrayList<String> allGoals = new java.util.ArrayList<>();
-        private final java.util.Set<String> failingGoals = new java.util.HashSet<>();
+        final List<String> allGoals = new ArrayList<>();
+        private final Set<String> failingGoals = new HashSet<>();
 
         void failOnGoal(String goal) {
             failingGoals.add(goal);

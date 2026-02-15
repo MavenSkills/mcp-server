@@ -281,29 +281,8 @@ public final class TestTool {
                 return false;
             }
 
-            Optional<FileTime> newestSource;
-            try (var stream = Files.walk(srcDir)) {
-                newestSource = stream
-                        .filter(p -> p.toString().endsWith(".java"))
-                        .map(p -> {
-                            try { return Files.getLastModifiedTime(p); }
-                            catch (IOException e) { return null; }
-                        })
-                        .filter(Objects::nonNull)
-                        .max(Comparator.naturalOrder());
-            }
-
-            Optional<FileTime> newestClass;
-            try (var stream = Files.walk(classesDir)) {
-                newestClass = stream
-                        .filter(p -> p.toString().endsWith(".class"))
-                        .map(p -> {
-                            try { return Files.getLastModifiedTime(p); }
-                            catch (IOException e) { return null; }
-                        })
-                        .filter(Objects::nonNull)
-                        .max(Comparator.naturalOrder());
-            }
+            Optional<FileTime> newestSource = newestFileTime(srcDir, ".java");
+            Optional<FileTime> newestClass = newestFileTime(classesDir, ".class");
 
             return newestSource.isPresent() && newestClass.isPresent()
                     && newestSource.get().compareTo(newestClass.get()) > 0;
@@ -311,6 +290,19 @@ public final class TestTool {
         } catch (IOException e) {
             log.debug("Failed to check stale classes: {}", e.getMessage());
             return false;
+        }
+    }
+
+    private static Optional<FileTime> newestFileTime(Path dir, String extension) throws IOException {
+        try (var stream = Files.walk(dir)) {
+            return stream
+                    .filter(p -> p.toString().endsWith(extension))
+                    .map(p -> {
+                        try { return Files.getLastModifiedTime(p); }
+                        catch (IOException e) { return null; }
+                    })
+                    .filter(Objects::nonNull)
+                    .max(Comparator.naturalOrder());
         }
     }
 }
