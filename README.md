@@ -52,14 +52,14 @@ Add to `.mcp.json` (Claude Code) or equivalent:
       "command": "java",
       "args": [
         "-jar",
-        "~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.1/maven-mcp-1.0.1.jar",
-        "--project",
-        "/path/to/your/maven/project"
+        "~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.1/maven-mcp-1.0.1.jar"
       ]
     }
   }
 }
 ```
+
+The server defaults to the current working directory. MCP clients like Claude Code set the working directory to the project root, so no extra configuration is needed.
 
 The server auto-detects `./mvnw` in the project, falling back to system `mvn`.
 

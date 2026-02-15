@@ -44,8 +44,9 @@ public class MavenMcpServer implements Callable<Integer> {
     private static final String SERVER_NAME = "maven-mcp";
     private static final String SERVER_VERSION = loadVersion();
 
-    @Option(names = "--project", required = true,
-            description = "Path to the Maven project directory")
+    @Option(names = "--project",
+            description = "Path to the Maven project directory (default: current directory)",
+            defaultValue = ".")
     private Path projectDir;
 
     // Available to future tool handlers
