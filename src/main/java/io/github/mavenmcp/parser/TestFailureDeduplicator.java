@@ -9,9 +9,10 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Deduplicates test failures that share the same root cause (identical message and stack trace).
+ * Deduplicates test failures that share the same root cause.
  *
- * <p>Groups failures by {@code (message, stackTrace)} key, merging multiple identical failures
+ * <p>Groups failures by extracting the deepest {@code Caused by:} line from the stack trace
+ * (or the first line of message if no cause chain exists), merging identical groups
  * into a single entry with a consolidated {@code testMethod}, {@code testClass}, and
  * {@code testOutput} field. Singleton groups pass through unchanged.</p>
  */

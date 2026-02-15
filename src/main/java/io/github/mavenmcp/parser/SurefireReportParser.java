@@ -172,19 +172,15 @@ public final class SurefireReportParser {
         return null;
     }
 
-    private static final int MAX_MESSAGE_LENGTH = 200;
-
     /**
-     * Truncate failure message to {@link #MAX_MESSAGE_LENGTH} characters.
+     * Truncate failure message to 200 characters.
+     * Normalizes empty strings to null (empty XML attribute = absent).
      */
     static String truncateMessage(String message) {
         if (message == null || message.isEmpty()) {
             return null;
         }
-        if (message.length() <= MAX_MESSAGE_LENGTH) {
-            return message;
-        }
-        return message.substring(0, MAX_MESSAGE_LENGTH) + "...";
+        return StackTraceProcessor.truncateHeader(message);
     }
 
     /**

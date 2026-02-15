@@ -2,41 +2,41 @@ package io.github.mavenmcp.tool;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ToolUtilsTest {
 
     @Test
     void tailLines_nullInput_returnsNull() {
-        assertNull(ToolUtils.tailLines(null, 50));
+        assertThat(ToolUtils.tailLines(null, 50)).isNull();
     }
 
     @Test
     void tailLines_withinLimit_returnsUnchanged() {
         String input = "line1\nline2\nline3";
-        assertSame(input, ToolUtils.tailLines(input, 50));
+        assertThat(ToolUtils.tailLines(input, 50)).isSameAs(input);
     }
 
     @Test
     void tailLines_exceedsLimit_returnsLastNLines() {
         String input = "line1\nline2\nline3\nline4\nline5";
-        assertEquals("line4\nline5", ToolUtils.tailLines(input, 2));
+        assertThat(ToolUtils.tailLines(input, 2)).isEqualTo("line4\nline5");
     }
 
     @Test
     void tailLines_exactBoundary_returnsUnchanged() {
         String input = "line1\nline2\nline3";
-        assertSame(input, ToolUtils.tailLines(input, 3));
+        assertThat(ToolUtils.tailLines(input, 3)).isSameAs(input);
     }
 
     @Test
     void tailLines_singleLine_returnsUnchanged() {
         String input = "single line";
-        assertSame(input, ToolUtils.tailLines(input, 50));
+        assertThat(ToolUtils.tailLines(input, 50)).isSameAs(input);
     }
 
     @Test
     void defaultOutputTailLines_is50() {
-        assertEquals(50, ToolUtils.DEFAULT_OUTPUT_TAIL_LINES);
+        assertThat(ToolUtils.DEFAULT_OUTPUT_TAIL_LINES).isEqualTo(50);
     }
 }
