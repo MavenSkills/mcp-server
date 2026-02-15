@@ -15,6 +15,17 @@ dependency-reduced-pom.xml
 *.swp
 *~
 
+# Claude Code / Agent prompts
+.claude/
+CLAUDE.md
+ANALYST.md
+ARCHITECT.md
+REQUIREMENTS.md
+SPEC.md
+
+# Serena
+.serena/
+
 # OS
 .DS_Store
 Thumbs.db
