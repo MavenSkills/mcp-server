@@ -28,17 +28,20 @@ When tests fail (5 failures, Spring Boot project) the gap grows:
 
 ## Setup
 
-### Build
+Requires Java 21+.
 
-Requires Java 21+ and Maven.
+### 1. Download the JAR
 
 ```bash
-mvn package
+mvn dependency:get -Dartifact=io.github.mavenskills:maven-mcp:1.0.0
 ```
 
-Produces `target/maven-mcp.jar`.
+This puts the JAR into your local Maven cache at:
+```
+~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.0/maven-mcp-1.0.0.jar
+```
 
-### Configure your MCP client
+### 2. Configure your MCP client
 
 Add to `.mcp.json` (Claude Code) or equivalent:
 
@@ -49,7 +52,7 @@ Add to `.mcp.json` (Claude Code) or equivalent:
       "command": "java",
       "args": [
         "-jar",
-        "/path/to/maven-mcp.jar",
+        "~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.0/maven-mcp-1.0.0.jar",
         "--project",
         "/path/to/your/maven/project"
       ]
