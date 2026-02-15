@@ -21,13 +21,20 @@ final class TestRunners {
     /** Returns a fixed result for any execution. */
     static class StubRunner extends MavenRunner {
         private final MavenExecutionResult result;
+        private final Runnable duringExecution;
 
         StubRunner(MavenExecutionResult result) {
+            this(result, () -> {});
+        }
+
+        StubRunner(MavenExecutionResult result, Runnable duringExecution) {
             this.result = result;
+            this.duringExecution = duringExecution;
         }
 
         @Override
         public MavenExecutionResult execute(String goal, List<String> extraArgs, Path exe, Path dir) {
+            duringExecution.run();
             return result;
         }
     }

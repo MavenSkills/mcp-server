@@ -2,6 +2,7 @@ package io.github.mavenmcp.tool;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -147,6 +148,8 @@ public final class TestTool {
 
                         log.info("maven_test called with goal: {}, args: {}, stackTraceLines: {}, appPackage: {}",
                                 goal, args, stackTraceLines, appPackage);
+
+                        cleanSurefireReports(config.projectDir());
 
                         MavenExecutionResult execResult = runner.execute(
                                 goal, args,
@@ -303,6 +306,24 @@ public final class TestTool {
                     })
                     .filter(Objects::nonNull)
                     .max(Comparator.naturalOrder());
+        }
+    }
+
+    /**
+     * Delete all TEST-*.xml files from target/surefire-reports/ to prevent stale results.
+     * Best-effort: errors are silently ignored.
+     */
+    static void cleanSurefireReports(Path projectDir) {
+        Path reportsDir = projectDir.resolve("target/surefire-reports");
+        if (!Files.isDirectory(reportsDir)) {
+            return;
+        }
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(reportsDir, "TEST-*.xml")) {
+            for (Path file : stream) {
+                Files.deleteIfExists(file);
+            }
+        } catch (IOException e) {
+            log.debug("Failed to clean surefire reports: {}", e.getMessage());
         }
     }
 }

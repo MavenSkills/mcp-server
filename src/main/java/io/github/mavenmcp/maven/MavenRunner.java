@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -74,7 +75,7 @@ public class MavenRunner {
     private List<String> buildCommand(Path mavenExecutable, String goal, List<String> extraArgs) {
         List<String> command = new ArrayList<>();
         command.add(mavenExecutable.toString());
-        command.add(goal);
+        Collections.addAll(command, goal.strip().split("\\s+"));
         command.add("-B"); // batch mode — always
         if (extraArgs != null) {
             command.addAll(extraArgs);

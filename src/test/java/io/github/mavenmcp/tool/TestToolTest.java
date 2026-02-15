@@ -41,9 +41,10 @@ class TestToolTest {
     @Test
     void shouldReturnTestResultsFromSurefireXml() throws IOException {
         Files.createDirectories(reportsDir);
-        copyFixture("TEST-com.example.PassingTest.xml");
 
-        var runner = new TestRunners.StubRunner(new MavenExecutionResult(0, "[INFO] BUILD SUCCESS", "", 5000));
+        var runner = new TestRunners.StubRunner(
+                new MavenExecutionResult(0, "[INFO] BUILD SUCCESS", "", 5000),
+                () -> copyFixtureUnchecked("TEST-com.example.PassingTest.xml"));
         SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
         CallToolResult result = spec.call().apply(null, Map.of());
@@ -58,9 +59,10 @@ class TestToolTest {
     @Test
     void shouldReturnFailuresFromSurefireXml() throws IOException {
         Files.createDirectories(reportsDir);
-        copyFixture("TEST-com.example.FailingTest.xml");
 
-        var runner = new TestRunners.StubRunner(new MavenExecutionResult(1, "[ERROR] Tests failed", "", 8000));
+        var runner = new TestRunners.StubRunner(
+                new MavenExecutionResult(1, "[ERROR] Tests failed", "", 8000),
+                () -> copyFixtureUnchecked("TEST-com.example.FailingTest.xml"));
         SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
         CallToolResult result = spec.call().apply(null, Map.of());
@@ -114,7 +116,6 @@ class TestToolTest {
         @Test
         void shouldApplySmartStackTraceProcessing() throws IOException {
             Files.createDirectories(reportsDir);
-            // Write a fixture with a Caused by chain
             String xml = """
                     <?xml version="1.0" encoding="UTF-8"?>
                     <testsuite name="com.example.ChainTest" time="1.0" tests="1" errors="0" skipped="0" failures="1">
@@ -128,10 +129,16 @@ class TestToolTest {
                       </testcase>
                     </testsuite>
                     """;
-            Files.writeString(reportsDir.resolve("TEST-com.example.ChainTest.xml"), xml);
 
             var runner = new TestRunners.StubRunner(
-                    new MavenExecutionResult(1, "[ERROR] Tests failed", "", 5000));
+                    new MavenExecutionResult(1, "[ERROR] Tests failed", "", 5000),
+                    () -> {
+                        try {
+                            Files.writeString(reportsDir.resolve("TEST-com.example.ChainTest.xml"), xml);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
             CallToolResult result = spec.call().apply(null,
@@ -154,10 +161,10 @@ class TestToolTest {
         @Test
         void shouldIncludeTestLogsInResponse() throws IOException {
             Files.createDirectories(reportsDir);
-            copyFixture("TEST-com.example.FailingTestWithLogs.xml");
 
             var runner = new TestRunners.StubRunner(
-                    new MavenExecutionResult(1, "[ERROR] Tests failed", "", 5000));
+                    new MavenExecutionResult(1, "[ERROR] Tests failed", "", 5000),
+                    () -> copyFixtureUnchecked("TEST-com.example.FailingTestWithLogs.xml"));
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
             CallToolResult result = spec.call().apply(null, Map.of());
@@ -170,10 +177,10 @@ class TestToolTest {
         @Test
         void shouldExcludeTestLogsWhenDisabled() throws IOException {
             Files.createDirectories(reportsDir);
-            copyFixture("TEST-com.example.FailingTestWithLogs.xml");
 
             var runner = new TestRunners.StubRunner(
-                    new MavenExecutionResult(1, "[ERROR] Tests failed", "", 5000));
+                    new MavenExecutionResult(1, "[ERROR] Tests failed", "", 5000),
+                    () -> copyFixtureUnchecked("TEST-com.example.FailingTestWithLogs.xml"));
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
             CallToolResult result = spec.call().apply(null,
@@ -423,10 +430,63 @@ class TestToolTest {
         }
     }
 
+    @Nested
+    class SurefireReportCleanup {
+
+        @Test
+        void shouldDeleteStaleXmlBeforeTestExecution() throws IOException {
+            Files.createDirectories(reportsDir);
+            // Place a stale XML file
+            Files.writeString(reportsDir.resolve("TEST-com.example.StaleTest.xml"),
+                    "<testsuite tests=\"100\" failures=\"0\" errors=\"0\"/>");
+            // Also place the fixture that the runner "produces"
+            copyFixture("TEST-com.example.PassingTest.xml");
+
+            var runner = new TestRunners.StubRunner(
+                    new MavenExecutionResult(0, "[INFO] BUILD SUCCESS", "", 5000));
+            SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
+
+            CallToolResult result = spec.call().apply(null, Map.of());
+
+            // The stale XML should have been deleted before execution;
+            // SurefireReportParser won't find it because cleanSurefireReports runs before execute.
+            // Since StubRunner doesn't actually create XML files, the reports dir should be empty.
+            assertThat(reportsDir.resolve("TEST-com.example.StaleTest.xml")).doesNotExist();
+            assertThat(reportsDir.resolve("TEST-com.example.PassingTest.xml")).doesNotExist();
+        }
+
+        @Test
+        void shouldBeNoOpWhenReportsDirDoesNotExist() {
+            // No target/surefire-reports directory exists
+            TestTool.cleanSurefireReports(tempDir);
+            // Should not throw — just a no-op
+            assertThat(tempDir.resolve("target/surefire-reports")).doesNotExist();
+        }
+
+        @Test
+        void shouldNotDeleteNonTestXmlFiles() throws IOException {
+            Files.createDirectories(reportsDir);
+            Path otherFile = reportsDir.resolve("failsafe-summary.xml");
+            Files.writeString(otherFile, "<summary/>");
+
+            TestTool.cleanSurefireReports(tempDir);
+
+            assertThat(otherFile).exists();
+        }
+    }
+
     private void copyFixture(String filename) throws IOException {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream("surefire-reports/" + filename)) {
             if (is == null) throw new RuntimeException("Fixture not found: " + filename);
             Files.copy(is, reportsDir.resolve(filename));
+        }
+    }
+
+    private void copyFixtureUnchecked(String filename) {
+        try {
+            copyFixture(filename);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
