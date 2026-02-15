@@ -195,6 +195,10 @@ class StackTraceProcessorTest {
         assertThat(StackTraceProcessor.isStructuralLine(
                 "\t\tCaused by: java.lang.RuntimeException: inner"))
                 .isTrue();
+        // JDK elision marker "... N more" → structural
+        assertThat(StackTraceProcessor.isStructuralLine(
+                "\t\t... 3 more"))
+                .isTrue();
         // Top-level Caused by: (no whitespace) → NOT structural
         assertThat(StackTraceProcessor.isStructuralLine(
                 "Caused by: java.lang.Exception: root"))
@@ -203,9 +207,8 @@ class StackTraceProcessorTest {
         assertThat(StackTraceProcessor.isStructuralLine(
                 "\tat org.framework.Runner.execute(Runner.java:50)"))
                 .isFalse();
-        // "... 42 more" line → NOT structural
-        assertThat(StackTraceProcessor.isStructuralLine(
-                "\t... 42 more"))
+        // Empty line → NOT structural
+        assertThat(StackTraceProcessor.isStructuralLine(""))
                 .isFalse();
     }
 
@@ -319,6 +322,24 @@ class StackTraceProcessorTest {
         assertThat(result).contains("\t\tCaused by: java.lang.RuntimeException: inner");
         assertThat(result).contains("\t\t\tat com.example.Resource.flush(Resource.java:30)");
         assertThat(result).contains("Caused by: java.lang.Exception: root");
+        assertThat(result).doesNotContain("framework frames omitted");
+    }
+
+    @Test
+    void shouldPreserveJdkElisionMarkerInsideSuppressedBlock() {
+        String trace = """
+                java.lang.Exception: main
+                \tat io.github.mavenmcp.Main.run(Main.java:10)
+                \tSuppressed: java.io.IOException: close failed
+                \t\tat io.github.mavenmcp.Resource.close(Resource.java:20)
+                \t\t... 3 more""";
+
+        String result = StackTraceProcessor.process(trace, APP_PACKAGE, 0);
+
+        assertThat(result).contains("\tSuppressed: java.io.IOException: close failed");
+        assertThat(result).contains("io.github.mavenmcp.Resource.close");
+        // JDK "... 3 more" marker preserved verbatim, not replaced by framework collapse
+        assertThat(result).contains("... 3 more");
         assertThat(result).doesNotContain("framework frames omitted");
     }
 }
