@@ -1,6 +1,7 @@
 package io.github.mavenmcp.tool;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,6 +69,10 @@ public final class TestTool {
                 "testOutputLimit": {
                   "type": "integer",
                   "description": "Per-test character limit for stdout/stderr output (default: 2000)"
+                },
+                "testOnly": {
+                  "type": "boolean",
+                  "description": "If true, run surefire:test directly (skips compile/generate-sources phases). Requires prior compilation. Default: false."
                 }
               }
             }
@@ -94,11 +99,22 @@ public final class TestTool {
                         boolean includeTestLogs = ToolUtils.extractBoolean(params, "includeTestLogs", true);
                         int testOutputLimit = ToolUtils.extractInt(params, "testOutputLimit",
                                 SurefireReportParser.DEFAULT_PER_TEST_OUTPUT_LIMIT);
-                        log.info("maven_test called with args: {}, stackTraceLines: {}, appPackage: {}",
-                                args, stackTraceLines, appPackage);
+                        boolean testOnly = ToolUtils.extractBoolean(params, "testOnly", false);
+
+                        String goal = testOnly ? "surefire:test" : "test";
+
+                        // Pre-flight guard: surefire:test requires compiled classes
+                        if (testOnly && !Files.isDirectory(config.projectDir().resolve("target/test-classes"))) {
+                            return new CallToolResult(
+                                    List.of(new TextContent("Project not compiled. Run maven_compile first or set testOnly=false.")),
+                                    true);
+                        }
+
+                        log.info("maven_test called with goal: {}, args: {}, stackTraceLines: {}, appPackage: {}",
+                                goal, args, stackTraceLines, appPackage);
 
                         MavenExecutionResult execResult = runner.execute(
-                                "test", args,
+                                goal, args,
                                 config.mavenExecutable(), config.projectDir());
 
                         String status = execResult.isSuccess() ? BuildResult.SUCCESS : BuildResult.FAILURE;

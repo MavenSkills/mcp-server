@@ -29,12 +29,13 @@ final class TestRunners {
         }
     }
 
-    /** Captures the args passed to execute(). */
     static class CapturingRunner extends MavenRunner {
+        String capturedGoal;
         List<String> capturedArgs;
 
         @Override
         public MavenExecutionResult execute(String goal, List<String> extraArgs, Path exe, Path dir) {
+            capturedGoal = goal;
             capturedArgs = extraArgs;
             return new MavenExecutionResult(0, "", "", 100);
         }
