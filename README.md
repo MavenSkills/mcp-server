@@ -26,6 +26,20 @@ When tests fail (5 failures, Spring Boot project) the gap grows:
 
 **~50-70x fewer tokens** on success. **~3-4x fewer** on failure — with better structure.
 
+### At scale: 205 test errors, one root cause
+
+Real case from a Spring Boot project: a Redis container port conflict causes 205 tests to error out. The raw Maven output is **5.4 MB** — mostly repeated Spring context dumps (`WebMergedContextConfiguration.toString()` = ~3,800 chars per failure) and framework stack traces.
+
+|  | Maven MCP | Bash (`./mvnw test`) |
+|---|---|---|
+| **Size** | ~9 KB | ~5.4 MB |
+| **Failures shown** | 2 (deduplicated) | 205 (all identical) |
+| **Root cause** | `InternalServerErrorException: bind: address already in use` | Buried in logs |
+| **Stack traces** | App frames + truncated headers | Full (repeated 205x) |
+| **Reduction** | **~600x** | — |
+
+The pipeline: long exception headers are truncated to 200 chars, framework frames are collapsed, and 22 failures with the same root cause are grouped into 2 entries (one for the original error, one for Spring's "threshold exceeded" retries). The agent reads 9 KB of structured JSON instead of scrolling through 5 MB of logs.
+
 ## Setup
 
 Requires Java 21+.
