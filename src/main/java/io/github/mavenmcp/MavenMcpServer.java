@@ -1,7 +1,10 @@
 package io.github.mavenmcp;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Properties;
 import java.util.concurrent.Callable;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -22,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.IVersionProvider;
 import picocli.CommandLine.Option;
 
 /**
@@ -32,13 +36,13 @@ import picocli.CommandLine.Option;
         name = "maven-mcp-server",
         description = "MCP server wrapping Maven CLI operations for AI agents",
         mixinStandardHelpOptions = true,
-        version = "1.0.0"
+        versionProvider = MavenMcpServer.VersionProvider.class
 )
 public class MavenMcpServer implements Callable<Integer> {
 
     private static final Logger log = LoggerFactory.getLogger(MavenMcpServer.class);
     private static final String SERVER_NAME = "maven-mcp";
-    private static final String SERVER_VERSION = "1.0.0";
+    private static final String SERVER_VERSION = loadVersion();
 
     @Option(names = "--project", required = true,
             description = "Path to the Maven project directory")
@@ -122,6 +126,26 @@ public class MavenMcpServer implements Callable<Integer> {
 
     public MavenRunner getMavenRunner() {
         return mavenRunner;
+    }
+
+    private static String loadVersion() {
+        try (InputStream in = MavenMcpServer.class.getResourceAsStream("/maven-mcp.properties")) {
+            if (in == null) {
+                return "unknown";
+            }
+            Properties props = new Properties();
+            props.load(in);
+            return props.getProperty("version", "unknown");
+        } catch (IOException e) {
+            return "unknown";
+        }
+    }
+
+    static class VersionProvider implements IVersionProvider {
+        @Override
+        public String[] getVersion() {
+            return new String[]{SERVER_NAME + " " + SERVER_VERSION};
+        }
     }
 
     public static void main(String[] args) {
