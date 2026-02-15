@@ -280,4 +280,32 @@ class SurefireReportParserTest {
             Files.copy(is, reportsDir.resolve(filename));
         }
     }
+
+    @Nested
+    class TruncateMessageTest {
+
+        @Test
+        void shortMessageUnchanged() {
+            assertThat(SurefireReportParser.truncateMessage("expected:<200> but was:<404>"))
+                    .isEqualTo("expected:<200> but was:<404>");
+        }
+
+        @Test
+        void longMessageTruncated() {
+            String longMessage = "Failed to load ApplicationContext for [" + "X".repeat(300) + "]";
+            String result = SurefireReportParser.truncateMessage(longMessage);
+            assertThat(result).hasSize(203); // 200 + "..."
+            assertThat(result).endsWith("...");
+        }
+
+        @Test
+        void nullMessageReturnsNull() {
+            assertThat(SurefireReportParser.truncateMessage(null)).isNull();
+        }
+
+        @Test
+        void emptyMessageReturnsNull() {
+            assertThat(SurefireReportParser.truncateMessage("")).isNull();
+        }
+    }
 }

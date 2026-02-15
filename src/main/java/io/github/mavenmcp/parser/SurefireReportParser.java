@@ -115,7 +115,7 @@ public final class SurefireReportParser {
                 Element failure = (Element) failureNodes.item(0);
                 String testClass = testcase.getAttribute("classname");
                 String testMethod = testcase.getAttribute("name");
-                String message = failure.getAttribute("message");
+                String message = truncateMessage(failure.getAttribute("message"));
                 // Raw stack trace — smart truncation is applied by the caller (StackTraceProcessor)
                 String rawTrace = failure.getTextContent();
                 String stackTrace = (rawTrace == null || rawTrace.isBlank()) ? null : rawTrace.strip();
@@ -170,6 +170,21 @@ public final class SurefireReportParser {
             }
         }
         return null;
+    }
+
+    private static final int MAX_MESSAGE_LENGTH = 200;
+
+    /**
+     * Truncate failure message to {@link #MAX_MESSAGE_LENGTH} characters.
+     */
+    static String truncateMessage(String message) {
+        if (message == null || message.isEmpty()) {
+            return null;
+        }
+        if (message.length() <= MAX_MESSAGE_LENGTH) {
+            return message;
+        }
+        return message.substring(0, MAX_MESSAGE_LENGTH) + "...";
     }
 
     /**

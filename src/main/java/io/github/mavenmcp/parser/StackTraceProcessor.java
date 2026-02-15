@@ -15,6 +15,7 @@ import java.util.List;
 public final class StackTraceProcessor {
 
     private static final int DEFAULT_ROOT_CAUSE_APP_FRAMES = 10;
+    static final int MAX_HEADER_LENGTH = 200;
 
     private StackTraceProcessor() {
     }
@@ -43,7 +44,7 @@ public final class StackTraceProcessor {
 
         // Always include top-level exception first line
         Segment topLevel = segments.getFirst();
-        outputLines.add(topLevel.header);
+        outputLines.add(truncateHeader(topLevel.header));
 
         if (segments.size() == 1) {
             // Simple trace — collapse frames from the single segment
@@ -55,13 +56,13 @@ public final class StackTraceProcessor {
             // Intermediate segments: just header + collapsed frames
             for (int i = 1; i < segments.size() - 1; i++) {
                 Segment seg = segments.get(i);
-                outputLines.add(seg.header);
+                outputLines.add(truncateHeader(seg.header));
                 addCollapsedFrames(outputLines, seg.frames, appPackage, filterFrames);
             }
 
             // Root cause: header + up to N application frames (or all if no filtering)
             Segment rootCause = segments.getLast();
-            outputLines.add(rootCause.header);
+            outputLines.add(truncateHeader(rootCause.header));
             addRootCauseFrames(outputLines, rootCause.frames, appPackage, filterFrames);
         }
 
@@ -124,7 +125,7 @@ public final class StackTraceProcessor {
                     output.add("\t... " + frameworkCount + " framework frames omitted");
                     frameworkCount = 0;
                 }
-                output.add(frame);
+                output.add(isStructuralLine(frame) ? truncateHeader(frame) : frame);
             } else {
                 frameworkCount++;
             }
@@ -154,7 +155,7 @@ public final class StackTraceProcessor {
                     frameworkCount = 0;
                 }
                 if (structural || appFrameCount < DEFAULT_ROOT_CAUSE_APP_FRAMES) {
-                    output.add(frame);
+                    output.add(structural ? truncateHeader(frame) : frame);
                     if (!structural) {
                         appFrameCount++;
                     }
@@ -212,11 +213,12 @@ public final class StackTraceProcessor {
             return new ArrayList<>(lines.subList(0, maxLines));
         }
 
-        // Find the root cause header in the output
+        // Find the root cause header in the output (already truncated)
         Segment rootCause = segments.getLast();
+        String truncatedRootHeader = truncateHeader(rootCause.header);
         int rootCauseHeaderIdx = -1;
         for (int i = lines.size() - 1; i >= 0; i--) {
-            if (lines.get(i).equals(rootCause.header)) {
+            if (lines.get(i).equals(truncatedRootHeader)) {
                 rootCauseHeaderIdx = i;
                 break;
             }
@@ -226,9 +228,9 @@ public final class StackTraceProcessor {
             // Root cause header already beyond the cap — take what we can from the end
             // Ensure we at least have the top-level header + root cause header + one frame
             List<String> result = new ArrayList<>();
-            result.add(lines.getFirst()); // top-level header
+            result.add(lines.getFirst()); // top-level header (already truncated)
             result.add("\t... (intermediate frames truncated)");
-            result.add(rootCause.header);
+            result.add(truncatedRootHeader);
             // Add root cause frames until we hit the cap
             int remaining = maxLines - 3;
             int rootCauseStart = rootCauseHeaderIdx + 1;
@@ -241,6 +243,16 @@ public final class StackTraceProcessor {
 
         // Root cause header is within the cap — just truncate at the limit
         return new ArrayList<>(lines.subList(0, maxLines));
+    }
+
+    /**
+     * Truncate a header line to {@link #MAX_HEADER_LENGTH} characters, appending "..." if truncated.
+     */
+    static String truncateHeader(String header) {
+        if (header == null || header.length() <= MAX_HEADER_LENGTH) {
+            return header;
+        }
+        return header.substring(0, MAX_HEADER_LENGTH) + "...";
     }
 
     /**

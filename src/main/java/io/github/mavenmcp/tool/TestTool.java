@@ -21,7 +21,6 @@ import io.github.mavenmcp.maven.MavenRunner;
 import io.github.mavenmcp.model.BuildResult;
 import io.github.mavenmcp.model.TestFailure;
 import io.github.mavenmcp.parser.CompilationOutputParser;
-import io.github.mavenmcp.parser.MavenOutputFilter;
 import io.github.mavenmcp.parser.StackTraceProcessor;
 import io.github.mavenmcp.parser.SurefireReportParser;
 import io.github.mavenmcp.parser.TestFailureDeduplicator;
@@ -128,7 +127,8 @@ public final class TestTool {
                                 if (!recompileResult.isSuccess()) {
                                     var parseResult = CompilationOutputParser.parse(
                                             recompileResult.stdout(), config.projectDir());
-                                    String output = MavenOutputFilter.filter(recompileResult.stdout());
+                                    String output = ToolUtils.tailLines(recompileResult.stdout(),
+                                            ToolUtils.DEFAULT_OUTPUT_TAIL_LINES);
                                     var buildResult = new BuildResult(
                                             BuildResult.FAILURE, recompileResult.duration(),
                                             parseResult.errors(), parseResult.warnings(),
@@ -156,8 +156,6 @@ public final class TestTool {
                                 config.mavenExecutable(), config.projectDir());
 
                         String status = execResult.isSuccess() ? BuildResult.SUCCESS : BuildResult.FAILURE;
-                        String output = execResult.isSuccess() ? null
-                                : MavenOutputFilter.filter(execResult.stdout());
 
                         // Try Surefire XML reports first
                         var surefireResult = SurefireReportParser.parse(
@@ -165,9 +163,8 @@ public final class TestTool {
 
                         BuildResult buildResult;
                         if (surefireResult.isPresent()) {
-                            // Test results available from XML
+                            // Structured data available — no raw output needed
                             var sr = surefireResult.get();
-                            // Apply smart stack trace processing
                             var processedFailures = processStackTraces(
                                     sr.failures(), appPackage, stackTraceLines);
                             var deduplicatedFailures = TestFailureDeduplicator.deduplicate(processedFailures);
@@ -175,9 +172,11 @@ public final class TestTool {
                                     status, execResult.duration(),
                                     null, null,
                                     sr.summary(), deduplicatedFailures,
-                                    null, output, note);
+                                    null, null, note);
                         } else if (!execResult.isSuccess()) {
-                            // No XML reports + failure = likely compilation error
+                            // No XML reports + failure = likely compilation error; tail raw output
+                            String output = ToolUtils.tailLines(execResult.stdout(),
+                                    ToolUtils.DEFAULT_OUTPUT_TAIL_LINES);
                             var parseResult = CompilationOutputParser.parse(
                                     execResult.stdout(), config.projectDir());
                             buildResult = new BuildResult(

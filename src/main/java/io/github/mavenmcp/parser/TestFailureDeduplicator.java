@@ -24,7 +24,9 @@ public final class TestFailureDeduplicator {
     }
 
     /**
-     * Deduplicate a list of test failures by grouping on {@code (message, stackTrace)}.
+     * Deduplicate a list of test failures by grouping on root cause.
+     * Root cause is the last {@code Caused by:} line from the stack trace,
+     * or the first line of message if no Caused by chain exists.
      *
      * @param failures the original list of test failures
      * @return deduplicated list preserving first-occurrence order
@@ -34,9 +36,9 @@ public final class TestFailureDeduplicator {
             return failures;
         }
 
-        Map<GroupKey, List<TestFailure>> groups = new LinkedHashMap<>();
+        Map<String, List<TestFailure>> groups = new LinkedHashMap<>();
         for (TestFailure failure : failures) {
-            var key = new GroupKey(failure.message(), failure.stackTrace());
+            var key = extractRootCauseKey(failure);
             groups.computeIfAbsent(key, k -> new ArrayList<>()).add(failure);
         }
 
@@ -94,6 +96,29 @@ public final class TestFailureDeduplicator {
         return String.join(TEST_OUTPUT_SEPARATOR, outputs);
     }
 
-    private record GroupKey(String message, String stackTrace) {
+    /**
+     * Extract the dedup key: last "Caused by:" line from stackTrace,
+     * or first line of message if no Caused by chain.
+     */
+    static String extractRootCauseKey(TestFailure failure) {
+        String stackTrace = failure.stackTrace();
+        if (stackTrace != null) {
+            String lastCausedBy = null;
+            for (String line : stackTrace.split("\n")) {
+                String stripped = line.strip();
+                if (stripped.startsWith("Caused by:")) {
+                    lastCausedBy = stripped;
+                }
+            }
+            if (lastCausedBy != null) {
+                return lastCausedBy;
+            }
+        }
+        String message = failure.message();
+        if (message != null) {
+            int newline = message.indexOf('\n');
+            return newline >= 0 ? message.substring(0, newline).strip() : message.strip();
+        }
+        return "";
     }
 }
