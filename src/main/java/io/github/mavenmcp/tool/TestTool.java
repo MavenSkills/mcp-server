@@ -15,9 +15,10 @@ import io.github.mavenmcp.model.BuildResult;
 import io.github.mavenmcp.model.TestFailure;
 import io.github.mavenmcp.parser.CompilationOutputParser;
 import io.github.mavenmcp.parser.MavenOutputFilter;
-import io.github.mavenmcp.parser.XmlUtils;
 import io.github.mavenmcp.parser.StackTraceProcessor;
 import io.github.mavenmcp.parser.SurefireReportParser;
+import io.github.mavenmcp.parser.TestFailureDeduplicator;
+import io.github.mavenmcp.parser.XmlUtils;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
@@ -115,10 +116,11 @@ public final class TestTool {
                             // Apply smart stack trace processing
                             var processedFailures = processStackTraces(
                                     sr.failures(), appPackage, stackTraceLines);
+                            var deduplicatedFailures = TestFailureDeduplicator.deduplicate(processedFailures);
                             buildResult = new BuildResult(
                                     status, execResult.duration(),
                                     null, null,
-                                    sr.summary(), processedFailures,
+                                    sr.summary(), deduplicatedFailures,
                                     null, output);
                         } else if (!execResult.isSuccess()) {
                             // No XML reports + failure = likely compilation error
