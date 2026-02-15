@@ -1,5 +1,6 @@
 package io.github.mavenmcp.tool;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -59,5 +60,23 @@ final class ToolUtils {
             return num.intValue();
         }
         return defaultValue;
+    }
+
+    /** Default number of lines to keep from raw Maven output (tail). */
+    static final int DEFAULT_OUTPUT_TAIL_LINES = 50;
+
+    /**
+     * Return the last {@code maxLines} lines of the given string.
+     * Returns the input unchanged if it has fewer lines, or null if input is null.
+     */
+    static String tailLines(String output, int maxLines) {
+        if (output == null) {
+            return null;
+        }
+        String[] lines = output.split("\n", -1);
+        if (lines.length <= maxLines) {
+            return output;
+        }
+        return String.join("\n", Arrays.copyOfRange(lines, lines.length - maxLines, lines.length));
     }
 }

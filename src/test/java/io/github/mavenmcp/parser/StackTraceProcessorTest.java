@@ -302,6 +302,48 @@ class StackTraceProcessorTest {
     }
 
     @Test
+    void shouldTruncateShortHeaderUnchanged() {
+        assertThat(StackTraceProcessor.truncateHeader("java.lang.NullPointerException: foo"))
+                .isEqualTo("java.lang.NullPointerException: foo");
+    }
+
+    @Test
+    void shouldTruncateLongHeader() {
+        String longHeader = "java.lang.IllegalStateException: " + "x".repeat(300);
+        String result = StackTraceProcessor.truncateHeader(longHeader);
+        assertThat(result).hasSize(203); // 200 + "..."
+        assertThat(result).endsWith("...");
+        assertThat(result).startsWith("java.lang.IllegalStateException:");
+    }
+
+    @Test
+    void shouldTruncateHeaderInProcessOutput() {
+        String longMessage = "Failed to load ApplicationContext for [" + "X".repeat(400) + "]";
+        String trace = "java.lang.IllegalStateException: " + longMessage + "\n"
+                + "\tat io.github.mavenmcp.Foo.bar(Foo.java:10)\n"
+                + "\tat org.framework.Runner.run(Runner.java:50)";
+
+        String result = StackTraceProcessor.process(trace, APP_PACKAGE, 0);
+
+        assertThat(result.lines().findFirst().orElse("")).hasSize(203);
+        assertThat(result).contains("io.github.mavenmcp.Foo.bar");
+    }
+
+    @Test
+    void shouldTruncateCausedByHeader() {
+        String longCausedBy = "Caused by: org.springframework.beans.factory.BeanCreationException: " + "Y".repeat(300);
+        String trace = "java.lang.IllegalStateException: short\n"
+                + "\tat org.framework.Runner.run(Runner.java:50)\n"
+                + longCausedBy + "\n"
+                + "\tat io.github.mavenmcp.Foo.bar(Foo.java:10)";
+
+        String result = StackTraceProcessor.process(trace, APP_PACKAGE, 0);
+
+        // Root cause header should be truncated
+        assertThat(result.lines().toList()).anyMatch(l -> l.startsWith("Caused by:") && l.endsWith("..."));
+    }
+
+    @Test
     void shouldPassSuppressedBlockUnchangedWhenNoAppPackage() {
         String trace = """
                 java.lang.Exception: main

@@ -115,7 +115,7 @@ public final class SurefireReportParser {
                 Element failure = (Element) failureNodes.item(0);
                 String testClass = testcase.getAttribute("classname");
                 String testMethod = testcase.getAttribute("name");
-                String message = failure.getAttribute("message");
+                String message = truncateMessage(failure.getAttribute("message"));
                 // Raw stack trace — smart truncation is applied by the caller (StackTraceProcessor)
                 String rawTrace = failure.getTextContent();
                 String stackTrace = (rawTrace == null || rawTrace.isBlank()) ? null : rawTrace.strip();
@@ -170,6 +170,17 @@ public final class SurefireReportParser {
             }
         }
         return null;
+    }
+
+    /**
+     * Truncate failure message to 200 characters.
+     * Normalizes empty strings to null (empty XML attribute = absent).
+     */
+    static String truncateMessage(String message) {
+        if (message == null || message.isEmpty()) {
+            return null;
+        }
+        return StackTraceProcessor.truncateHeader(message);
     }
 
     /**

@@ -71,7 +71,7 @@ class TestToolTest {
         assertThat(json).contains("FAILURE");
         assertThat(json).contains("shouldReturnUser");
         assertThat(json).contains("\"testsFailed\":2");
-        assertThat(json).contains("\"output\""); // filtered output on failure
+        assertThat(json).doesNotContain("\"output\""); // null when surefire XML available
     }
 
     @Test
@@ -192,32 +192,27 @@ class TestToolTest {
     }
 
     @Nested
-    class MavenOutputFiltering {
+    class OutputHandling {
 
         @Test
-        void shouldFilterMavenOutputOnFailure() throws IOException {
+        void shouldOmitOutputWhenSurefireXmlAvailable() throws IOException {
             Files.createDirectories(reportsDir);
-            copyFixture("TEST-com.example.FailingTest.xml");
 
             String rawOutput = """
                     [INFO] Scanning for projects...
-                    [INFO] --- maven-surefire-plugin:3.2.5:test (default-test) @ my-project ---
-                    Downloading: https://repo.maven.apache.org/maven2/org/example/lib.jar
                     [ERROR] Tests run: 4, Failures: 2, Errors: 0, Skipped: 0
                     [ERROR] BUILD FAILURE""";
             var runner = new TestRunners.StubRunner(
-                    new MavenExecutionResult(1, rawOutput, "", 5000));
+                    new MavenExecutionResult(1, rawOutput, "", 5000),
+                    () -> copyFixtureUnchecked("TEST-com.example.FailingTest.xml"));
             SyncToolSpecification spec = TestTool.create(config, runner, objectMapper);
 
             CallToolResult result = spec.call().apply(null, Map.of());
 
             String json = result.content().getFirst().toString();
-            // Actionable lines preserved
-            assertThat(json).contains("Tests run: 4, Failures: 2");
-            assertThat(json).contains("BUILD FAILURE");
-            // Noise filtered out
-            assertThat(json).doesNotContain("Scanning for projects");
-            assertThat(json).doesNotContain("Downloading:");
+            // Structured data present, raw output omitted
+            assertThat(json).contains("\"failures\"");
+            assertThat(json).doesNotContain("\"output\"");
         }
     }
 

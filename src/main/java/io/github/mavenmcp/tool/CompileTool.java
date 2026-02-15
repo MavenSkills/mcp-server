@@ -67,8 +67,9 @@ public final class CompileTool {
                                 execResult.stdout(), config.projectDir());
 
                         String status = execResult.isSuccess() ? BuildResult.SUCCESS : BuildResult.FAILURE;
-                        // Raw output only on failure
-                        String output = execResult.isSuccess() ? null : execResult.stdout();
+                        // Tail of raw output only on failure
+                        String output = execResult.isSuccess() ? null
+                                : ToolUtils.tailLines(execResult.stdout(), ToolUtils.DEFAULT_OUTPUT_TAIL_LINES);
 
                         var buildResult = new BuildResult(
                                 status, execResult.duration(),
