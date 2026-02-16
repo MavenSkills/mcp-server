@@ -6,7 +6,7 @@
 
 AI coding agents (Claude Code, Cursor, Windsurf) run Maven builds through shell commands and get back **pages of raw logs**. The agent must parse this unstructured text, burning through context window and tokens — you pay for every line of `[INFO] Downloading...` that the model reads.
 
-**Maven MCP** is a [Model Context Protocol](https://modelcontextprotocol.io/) server that sits between the agent and Maven. It runs the build, parses the output, and returns **one structured JSON object** — just the errors, test results, and actionable information the agent needs.
+**Maven MCP** is a [Model Context Protocol](https://modelcontextprotocol.io/) server that sits between the agent and Maven. It runs the build, parses the output, and returns **concise Markdown** — just the errors, test results, and actionable information the agent needs.
 
 Tested with Claude Code. Compatible with any MCP client.
 
@@ -19,7 +19,7 @@ Same project, same tests — different token cost for the agent:
 | **17 tests passing** | ~30 tokens | ~2 200 tokens | ~1 600 tokens |
 | **5 failures (Spring Boot)** | ~900 tokens | ~3 400 tokens | ~2 600 tokens |
 
-**~50x fewer tokens** on success. **~3x fewer** on failure — as structured JSON instead of raw logs.
+**~50x fewer tokens** on success. **~3x fewer** on failure — as concise Markdown instead of raw logs.
 
 ### At scale: 205 errors, one root cause
 
@@ -41,12 +41,12 @@ Requires Java 21+.
 ### 1. Download the JAR
 
 ```bash
-mvn dependency:get -Dartifact=io.github.mavenskills:maven-mcp:1.0.3
+mvn dependency:get -Dartifact=io.github.mavenskills:maven-mcp:1.1.0
 ```
 
 This puts the JAR into your local Maven cache at:
 ```
-~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.3/maven-mcp-1.0.3.jar
+~/.m2/repository/io/github/mavenskills/maven-mcp/1.1.0/maven-mcp-1.1.0.jar
 ```
 
 ### 2. Configure your MCP client
@@ -60,7 +60,7 @@ Add to `.mcp.json` (Claude Code) or equivalent:
       "command": "java",
       "args": [
         "-jar",
-        "~/.m2/repository/io/github/mavenskills/maven-mcp/1.0.3/maven-mcp-1.0.3.jar"
+        "~/.m2/repository/io/github/mavenskills/maven-mcp/1.1.0/maven-mcp-1.1.0.jar"
       ]
     }
   }
@@ -96,7 +96,7 @@ The test tool does more than run `mvn test`:
 
 ## How it works
 
-Maven MCP spawns Maven as an external process (`./mvnw` or `mvn`), captures stdout/stderr, parses the output (compilation errors, Surefire XML reports), and returns structured JSON over MCP stdio transport. The agent never sees raw build logs.
+Maven MCP spawns Maven as an external process (`./mvnw` or `mvn`), captures stdout/stderr, parses the output (compilation errors, Surefire XML reports), and returns concise Markdown over MCP stdio transport. The agent never sees raw build logs.
 
 ## License
 
