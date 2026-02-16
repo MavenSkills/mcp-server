@@ -29,9 +29,8 @@ class CompileToolTest {
 
         CallToolResult result = spec.call().apply(null, Map.of());
 
-        String json = result.content().getFirst().toString();
-        assertThat(json).contains("SUCCESS");
-        assertThat(json).doesNotContain("\"output\""); // no output on success
+        String text = result.content().getFirst().toString();
+        assertThat(text).contains("Compile SUCCESS");
         assertThat(result.isError()).isFalse();
     }
 
@@ -43,11 +42,10 @@ class CompileToolTest {
 
         CallToolResult result = spec.call().apply(null, Map.of());
 
-        String json = result.content().getFirst().toString();
-        assertThat(json).contains("FAILURE");
-        assertThat(json).contains("cannot find symbol");
-        assertThat(json).contains("src/main/java/Foo.java"); // relative path
-        assertThat(json).contains("\"output\""); // raw output on failure
+        String text = result.content().getFirst().toString();
+        assertThat(text).contains("Compile FAILURE");
+        assertThat(text).contains("cannot find symbol");
+        assertThat(text).contains("src/main/java/Foo.java"); // relative path in error group
     }
 
     @Test
@@ -58,11 +56,9 @@ class CompileToolTest {
 
         CallToolResult result = spec.call().apply(null, Map.of());
 
-        String json = result.content().getFirst().toString();
-        assertThat(json).contains("SUCCESS");
-        assertThat(json).contains("WARNING");
-        assertThat(json).contains("deprecation");
-        assertThat(json).doesNotContain("\"output\""); // no output on success
+        String text = result.content().getFirst().toString();
+        assertThat(text).contains("Compile SUCCESS");
+        assertThat(text).contains("warning"); // warning count in header
     }
 
     @Test

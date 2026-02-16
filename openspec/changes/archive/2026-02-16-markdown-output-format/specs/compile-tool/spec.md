@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: MCP tool maven_compile
 The server SHALL register an MCP tool named `maven_compile` with description "Compile a Maven project. Returns structured compilation errors with file, line, column, and message." The tool SHALL invoke `mvn compile -B` via MavenRunner and return a Markdown-formatted result via `MarkdownFormatter.format(buildResult, "Compile")`.
@@ -14,17 +14,6 @@ The server SHALL register an MCP tool named `maven_compile` with description "Co
 #### Scenario: Successful compilation with warnings
 - **WHEN** compilation succeeds but javac produces deprecation or unchecked warnings
 - **THEN** the tool SHALL return a Markdown string: `Compile SUCCESS ({duration}s) — N warnings`
-
-### Requirement: maven_compile accepts additional Maven arguments
-The tool SHALL accept an optional `args` parameter (array of strings) that SHALL be appended to the Maven command line after the `-B` flag.
-
-#### Scenario: Extra arguments passed
-- **WHEN** the agent calls `maven_compile` with `args: ["-DskipFrontend", "-Pdev"]`
-- **THEN** the server SHALL execute `<maven> compile -B -DskipFrontend -Pdev`
-
-#### Scenario: No extra arguments
-- **WHEN** the agent calls `maven_compile` without the `args` parameter
-- **THEN** the server SHALL execute `<maven> compile -B` with no extra flags
 
 ### Requirement: maven_compile response format
 The tool SHALL return a `CallToolResult` containing a single `TextContent` with a Markdown-formatted string produced by `MarkdownFormatter`. The response is plain text optimized for LLM consumption, not JSON.

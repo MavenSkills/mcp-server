@@ -49,10 +49,10 @@ class TestToolTest {
 
         CallToolResult result = spec.call().apply(null, Map.of());
 
-        String json = result.content().getFirst().toString();
-        assertThat(json).contains("SUCCESS");
-        assertThat(json).contains("\"testsRun\":3");
-        assertThat(json).contains("\"testsFailed\":0");
+        String text = result.content().getFirst().toString();
+        assertThat(text).contains("Test SUCCESS");
+        assertThat(text).contains("3 run");
+        assertThat(text).contains("0 failed");
         assertThat(result.isError()).isFalse();
     }
 
@@ -67,11 +67,10 @@ class TestToolTest {
 
         CallToolResult result = spec.call().apply(null, Map.of());
 
-        String json = result.content().getFirst().toString();
-        assertThat(json).contains("FAILURE");
-        assertThat(json).contains("shouldReturnUser");
-        assertThat(json).contains("\"testsFailed\":2");
-        assertThat(json).doesNotContain("\"output\""); // null when surefire XML available
+        String text = result.content().getFirst().toString();
+        assertThat(text).contains("Test FAILURE");
+        assertThat(text).contains("shouldReturnUser");
+        assertThat(text).contains("2 failed");
     }
 
     @Test
@@ -83,10 +82,10 @@ class TestToolTest {
 
         CallToolResult result = spec.call().apply(null, Map.of());
 
-        String json = result.content().getFirst().toString();
-        assertThat(json).contains("FAILURE");
-        assertThat(json).contains("cannot find symbol");
-        assertThat(json).doesNotContain("testsRun"); // no test summary
+        String text = result.content().getFirst().toString();
+        assertThat(text).contains("Test FAILURE");
+        assertThat(text).contains("cannot find symbol");
+        assertThat(text).doesNotContain(" run, "); // no test summary
     }
 
     @Test
@@ -144,14 +143,14 @@ class TestToolTest {
             CallToolResult result = spec.call().apply(null,
                     Map.of("appPackage", "com.example"));
 
-            String json = result.content().getFirst().toString();
+            String text = result.content().getFirst().toString();
             // Both exception headers should be preserved
-            assertThat(json).contains("RuntimeException: top");
-            assertThat(json).contains("Caused by: java.io.IOException: root cause");
+            assertThat(text).contains("RuntimeException: top");
+            assertThat(text).contains("Caused by: java.io.IOException: root cause");
             // Application frames should be preserved
-            assertThat(json).contains("com.example.service.ApiClient");
+            assertThat(text).contains("com.example.service.ApiClient");
             // Framework frames should be collapsed
-            assertThat(json).contains("framework frames omitted");
+            assertThat(text).contains("framework frames omitted");
         }
     }
 
@@ -169,9 +168,9 @@ class TestToolTest {
 
             CallToolResult result = spec.call().apply(null, Map.of());
 
-            String json = result.content().getFirst().toString();
-            assertThat(json).contains("testOutput");
-            assertThat(json).contains("Initializing connection pool");
+            String text = result.content().getFirst().toString();
+            assertThat(text).contains("Test output:");
+            assertThat(text).contains("Initializing connection pool");
         }
 
         @Test
@@ -186,8 +185,8 @@ class TestToolTest {
             CallToolResult result = spec.call().apply(null,
                     Map.of("includeTestLogs", false));
 
-            String json = result.content().getFirst().toString();
-            assertThat(json).doesNotContain("testOutput");
+            String text = result.content().getFirst().toString();
+            assertThat(text).doesNotContain("Test output:");
         }
     }
 
@@ -209,10 +208,9 @@ class TestToolTest {
 
             CallToolResult result = spec.call().apply(null, Map.of());
 
-            String json = result.content().getFirst().toString();
-            // Structured data present, raw output omitted
-            assertThat(json).contains("\"failures\"");
-            assertThat(json).doesNotContain("\"output\"");
+            String text = result.content().getFirst().toString();
+            // Structured data present (failure sections)
+            assertThat(text).contains("FAILED:");
         }
     }
 
@@ -281,9 +279,9 @@ class TestToolTest {
             CallToolResult result = spec.call().apply(null, Map.of("testOnly", false));
 
             assertThat(runner.capturedGoal).isEqualTo("test");
-            // note should be null when testOnly=false
-            String json = result.content().getFirst().toString();
-            assertThat(json).doesNotContain("\"note\"");
+            // note should be null when testOnly=false — no blockquote in output
+            String text = result.content().getFirst().toString();
+            assertThat(text).doesNotContain("testOnly mode");
         }
 
         @Test
@@ -320,9 +318,9 @@ class TestToolTest {
 
             CallToolResult result = spec.call().apply(null, Map.of("testOnly", true));
 
-            String json = result.content().getFirst().toString();
-            assertThat(json).contains("Ran in testOnly mode (surefire:test)");
-            assertThat(json).contains("re-run with testOnly=false for a full build");
+            String text = result.content().getFirst().toString();
+            assertThat(text).contains("Ran in testOnly mode (surefire:test)");
+            assertThat(text).contains("re-run with testOnly=false for a full build");
         }
 
         @Test
@@ -346,8 +344,8 @@ class TestToolTest {
             // Should have two invocations: recompile + surefire:test
             assertThat(runner.allGoals).containsExactly(
                     "compiler:compile compiler:testCompile", "surefire:test");
-            String json = result.content().getFirst().toString();
-            assertThat(json).contains("auto-recompiled via compiler:compile compiler:testCompile");
+            String text = result.content().getFirst().toString();
+            assertThat(text).contains("auto-recompiled via compiler:compile compiler:testCompile");
         }
 
         @Test
@@ -371,8 +369,8 @@ class TestToolTest {
 
             // Only recompile invocation, no surefire:test
             assertThat(runner.allGoals).containsExactly("compiler:compile compiler:testCompile");
-            String json = result.content().getFirst().toString();
-            assertThat(json).contains("FAILURE");
+            String text = result.content().getFirst().toString();
+            assertThat(text).contains("FAILURE");
         }
     }
 
