@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.mavenmcp.config.ServerConfig;
+import io.github.mavenmcp.formatter.MarkdownFormatter;
 import io.github.mavenmcp.maven.MavenExecutionException;
 import io.github.mavenmcp.maven.MavenExecutionResult;
 import io.github.mavenmcp.maven.MavenRunner;
@@ -76,8 +77,8 @@ public final class CompileTool {
                                 parseResult.errors(), parseResult.warnings(),
                                 null, null, null, output, null);
 
-                        String json = objectMapper.writeValueAsString(buildResult);
-                        return new CallToolResult(List.of(new TextContent(json)), false);
+                        String markdown = MarkdownFormatter.format(buildResult, "Compile");
+                        return new CallToolResult(List.of(new TextContent(markdown)), false);
 
                     } catch (MavenExecutionException e) {
                         log.error("maven_compile failed: {}", e.getMessage());

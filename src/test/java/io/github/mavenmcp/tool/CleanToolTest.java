@@ -28,8 +28,8 @@ class CleanToolTest {
 
         CallToolResult result = spec.call().apply(null, Map.of());
 
-        String json = result.content().getFirst().toString();
-        assertThat(json).contains("SUCCESS");
+        String text = result.content().getFirst().toString();
+        assertThat(text).contains("SUCCESS");
         assertThat(result.isError()).isFalse();
     }
 
@@ -40,9 +40,9 @@ class CleanToolTest {
 
         CallToolResult result = spec.call().apply(null, Map.of());
 
-        String json = result.content().getFirst().toString();
-        assertThat(json).contains("FAILURE");
-        assertThat(json).contains("Clean failed");
+        String text = result.content().getFirst().toString();
+        assertThat(text).contains("FAILURE");
+        assertThat(text).contains("Clean failed");
         assertThat(result.isError()).isFalse();
     }
 

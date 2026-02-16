@@ -15,6 +15,7 @@ import java.util.Optional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.mavenmcp.config.ServerConfig;
+import io.github.mavenmcp.formatter.MarkdownFormatter;
 import io.github.mavenmcp.maven.MavenExecutionException;
 import io.github.mavenmcp.maven.MavenExecutionResult;
 import io.github.mavenmcp.maven.MavenRunner;
@@ -133,8 +134,8 @@ public final class TestTool {
                                             BuildResult.FAILURE, recompileResult.duration(),
                                             parseResult.errors(), parseResult.warnings(),
                                             null, null, null, output, null);
-                                    String json = objectMapper.writeValueAsString(buildResult);
-                                    return new CallToolResult(List.of(new TextContent(json)), false);
+                                    String markdown = MarkdownFormatter.format(buildResult, "Test");
+                                    return new CallToolResult(List.of(new TextContent(markdown)), false);
                                 }
 
                                 note = "Ran in testOnly mode. Stale sources detected — auto-recompiled via "
@@ -190,8 +191,8 @@ public final class TestTool {
                                     null, null, null, null, null, null, note);
                         }
 
-                        String json = objectMapper.writeValueAsString(buildResult);
-                        return new CallToolResult(List.of(new TextContent(json)), false);
+                        String markdown = MarkdownFormatter.format(buildResult, "Test");
+                        return new CallToolResult(List.of(new TextContent(markdown)), false);
 
                     } catch (MavenExecutionException e) {
                         log.error("maven_test failed: {}", e.getMessage());
