@@ -28,7 +28,7 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Build and test
-        run: mvn -B verify
+        run: mvn -B verify -Pci
 
       - name: Upload test results
         if: always()
