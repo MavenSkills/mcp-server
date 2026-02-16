@@ -26,6 +26,9 @@ SPEC.md
 # Serena
 .serena/
 
+# Local (untracked files)
+local/
+
 # OS
 .DS_Store
 Thumbs.db
