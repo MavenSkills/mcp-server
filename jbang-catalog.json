@@ -1,0 +1,8 @@
+{
+  "aliases": {
+    "maven-mcp": {
+      "script-ref": "io.github.mavenskills:maven-mcp:RELEASE",
+      "description": "MCP server wrapping Maven CLI operations for AI agents"
+    }
+  }
+}

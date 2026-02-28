@@ -36,20 +36,34 @@ Exception headers are truncated, framework frames collapsed, and identical failu
 
 ## Setup
 
+### With JBang (recommended)
+
+Install [JBang](https://www.jbang.dev/download/) if you don't have it, then add to `.mcp.json` (Claude Code) or equivalent:
+
+```json
+{
+  "mcpServers": {
+    "maven": {
+      "command": "jbang",
+      "args": ["maven-mcp@MavenSkills/mcp-server"]
+    }
+  }
+}
+```
+
+JBang downloads the server and a matching Java runtime automatically on first run.
+
+### With Java
+
 Requires Java 21+.
 
-### 1. Download the JAR
+**1. Download the JAR**
 
 ```bash
 mvn dependency:get -Dartifact=io.github.mavenskills:maven-mcp:1.1.0
 ```
 
-This puts the JAR into your local Maven cache at:
-```
-~/.m2/repository/io/github/mavenskills/maven-mcp/1.1.0/maven-mcp-1.1.0.jar
-```
-
-### 2. Configure your MCP client
+**2. Configure your MCP client**
 
 Add to `.mcp.json` (Claude Code) or equivalent:
 
@@ -66,6 +80,8 @@ Add to `.mcp.json` (Claude Code) or equivalent:
   }
 }
 ```
+
+---
 
 The server defaults to the current working directory. MCP clients like Claude Code set the working directory to the project root, so no extra configuration is needed.
 
