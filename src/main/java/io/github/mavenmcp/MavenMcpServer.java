@@ -15,6 +15,7 @@ import io.github.mavenmcp.maven.MavenNotFoundException;
 import io.github.mavenmcp.maven.MavenRunner;
 import io.github.mavenmcp.tool.CleanTool;
 import io.github.mavenmcp.tool.CompileTool;
+import io.github.mavenmcp.tool.DependencyTraceTool;
 import io.github.mavenmcp.tool.TestTool;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
@@ -85,7 +86,8 @@ public class MavenMcpServer implements Callable<Integer> {
                 .tools(
                         CompileTool.create(config, mavenRunner, objectMapper),
                         CleanTool.create(config, mavenRunner, objectMapper),
-                        TestTool.create(config, mavenRunner, objectMapper)
+                        TestTool.create(config, mavenRunner, objectMapper),
+                        DependencyTraceTool.create(config, mavenRunner, objectMapper)
                 )
                 .build();
 
