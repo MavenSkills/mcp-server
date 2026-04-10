@@ -1,5 +1,7 @@
 # Maven MCP Server
 
+> **DEPRECATED** — This project is no longer maintained. Use [RTK Java](https://github.com/mariuszs/rtk-java) instead, which provides the same Maven output filtering as a lightweight CLI proxy — no MCP server required. See [mariuszs/rtk-java#2](https://github.com/mariuszs/rtk-java/pull/2) for details.
+
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.mavenskills/maven-mcp)](https://central.sonatype.com/artifact/io.github.mavenskills/maven-mcp)
 [![CI](https://github.com/MavenSkills/mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/MavenSkills/mcp-server/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
